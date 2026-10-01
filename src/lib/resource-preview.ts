@@ -1,4 +1,4 @@
-export type ResourceKind='youtube'|'spotify'|'image'|'document'|'article'|'link';
+export type ResourceKind='youtube'|'spotify'|'image'|'document'|'audio'|'video'|'article'|'link';
 export type ResourcePreview={
   title:string;
   description:string;
