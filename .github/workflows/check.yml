@@ -1,0 +1,31 @@
+name: Validate AVODAH
+on:
+  push:
+    paths:
+      - 'src/app/**'
+      - 'src/lib/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/check.yml'
+  pull_request:
+    paths:
+      - 'src/app/**'
+      - 'src/lib/**'
+      - 'package.json'
+      - 'tsconfig.json'
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: ${{ hashFiles('src/app/page.tsx') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://lzhdnrzurvphekrjfrfw.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Pm6__41SIgePX8wxotQY2Q_R6vnNAb1

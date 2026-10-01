@@ -1,9 +1,15 @@
 # AVODAH
 
-Workspace colaborativo para radio, streaming, podcasts y producción de contenidos.
+Workspace colaborativo para equipos de radio, streaming, podcasts y producción de contenidos.
 
-**Stack:** Next.js (App Router), Supabase Auth/Postgres/Realtime/Storage y Vercel.
+**Stack:** Next.js App Router, Supabase (Auth, PostgreSQL, Realtime y Storage privado), Vercel y Jitsi.
 
-El código de la aplicación y la configuración de despliegue deben mantenerse en este repositorio. Nunca subir claves `service_role` ni archivos `.env.local`.
+## Despliegue
 
-Para configurar el despliegue en Vercel, importar este repositorio como un proyecto Next.js y definir `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+1. Importar este repositorio en Vercel con preset **Next.js** y directorio raíz `./`.
+2. Agregar las variables indicadas en `.env.example` para Production y Preview.
+3. Desplegar. Cada nuevo commit en `main` actualizará producción.
+
+**Importante:** no subir `.env.local`, claves `service_role` ni contraseñas. La clave `sb_publishable_` es pública y Supabase protege los datos mediante políticas RLS.
+
+La base Supabase AVODAH ya existe y está provisionada por separado. Consulta `DEPLOY_VERCEL.md` para los detalles.
