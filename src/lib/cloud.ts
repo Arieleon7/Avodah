@@ -45,7 +45,7 @@ export async function createWorkspace(userId: string, name: string, type: string
   const slug = `${slugBase}-${Math.random().toString(36).slice(2,7)}`;
   const { data, error } = await supabase.from('workspaces').insert({ owner_id:userId, name, slug, description, production_type:type }).select('*').single();
   if (error) throw error;
-  await supabase.from('chat_channels').insert({ workspace_id:data.id, name:'General', kind:'general' });
+  // A database trigger creates the General channel atomically.
   return data.id as string;
 }
 
