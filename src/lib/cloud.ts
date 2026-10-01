@@ -143,7 +143,7 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
     productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[]};}),
     blocks:(blockRes.data ?? []).map((b:any)=>({id:b.id,productionId:b.production_id,order:b.position,type:b.type,title:b.title,duration:b.duration_min,responsible:nameOf(b.responsible_id),responsibleId:b.responsible_id,notes:b.notes,status:b.status})),
     ideas:(ideaRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,description:i.description,tags:i.tags??[],author:nameOf(i.author_id),authorId:i.author_id,reactions:reactionCount.get(i.id)||0,comments:(commentsByIdea.get(i.id)||[]).length,commentItems:commentsByIdea.get(i.id)||[],archived:i.archived})),
-    library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,category:i.category,url:i.url??'#',note:i.note,source:i.source,tags:i.tags??[]})),
+    library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,category:i.category,url:i.url??'',note:i.note,source:i.source,tags:i.tags??[],previewTitle:i.preview_title||'',previewDescription:i.preview_description||'',previewImage:i.preview_image||'',previewSite:i.preview_site||'',previewKind:i.preview_kind||'',previewFetchedAt:i.preview_fetched_at||''})),
     tasks:(taskRes.data ?? []).map((t:any)=>({id:t.id,title:t.title,status:taskStatusFromDb[t.status]??'Pendiente',assignee:nameOf(t.assignee_id)||'Sin asignar',assigneeId:t.assignee_id,due:t.due_at?new Date(t.due_at).toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'Sin fecha',dueAt:t.due_at,priority:t.priority,productionId:t.production_id??undefined})),
     channels:channels.map((c:any)=>({id:channelAlias.get(c.id)!,dbId:c.id,name:c.name,productionId:c.production_id??undefined,kind:c.kind})),
     messages:(messageRes.data ?? []).map((m:any)=>({id:m.id,channel:channelAlias.get(m.channel_id)??m.channel_id,dbChannelId:m.channel_id,author:nameOf(m.author_id),authorId:m.author_id,text:m.body,time:new Date(m.created_at).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),replyTo:m.reply_to,pinned:!!m.pinned_at,reactions:reactionsByMessage.get(m.id)||[],attachments:attachmentsByMessage.get(m.id)||[]})),
@@ -165,7 +165,45 @@ export async function insertIdea(workspaceId:string,userId:string,i:any) {
 }
 export async function reactIdea(ideaId:string,userId:string) { const {error}=await supabase.from('idea_reactions').upsert({idea_id:ideaId,user_id:userId,emoji:'❤️'}); if(error) throw error; }
 export async function archiveIdea(ideaId:string) { const {error}=await supabase.from('ideas').update({archived:true}).eq('id',ideaId); if(error) throw error; }
-export async function insertLibraryItem(workspaceId:string,userId:string,i:any) { const {data,error}=await supabase.from('library_items').insert({workspace_id:workspaceId,added_by:userId,title:i.title,category:i.category,url:i.url,note:i.note,source:i.source,tags:i.tags}).select('id').single(); if(error) throw error; return data.id as string; }
+export async function insertLibraryItem(workspaceId:string,userId:string,i:any) {
+  const {data,error}=await supabase.from('library_items').insert({
+    workspace_id:workspaceId,added_by:userId,title:i.title,category:i.category,url:i.url||null,
+    note:i.note,source:i.source,tags:i.tags,
+    preview_title:i.previewTitle||null,preview_description:i.previewDescription||null,
+    preview_image:i.previewImage||null,preview_site:i.previewSite||null,
+    preview_kind:i.previewKind||null,preview_fetched_at:i.previewFetchedAt||null
+  }).select('id').single();
+  if(error)throw error;
+  return data.id as string;
+}
+export async function updateLibraryPreview(itemId:string,preview:{
+  title:string;description:string;image:string;site:string;kind:string;fetchedAt?:string
+}) {
+  const {error}=await supabase.from('library_items').update({
+    preview_title:preview.title,preview_description:preview.description,preview_image:preview.image,
+    preview_site:preview.site,preview_kind:preview.kind,preview_fetched_at:preview.fetchedAt||new Date().toISOString()
+  }).eq('id',itemId);
+  if(error)throw error;
+}
+export async function updateLibraryItem(itemId:string,item:{title:string;note:string;category:string;source:string;tags:string[]}) {
+  const {error}=await supabase.from('library_items').update(item).eq('id',itemId);
+  if(error)throw error;
+}
+export async function requestResourcePreview(url:string,demo:boolean=false) {
+  const {guessResourcePreview}=await import('./resource-preview');
+  const fallback=guessResourcePreview(url);
+  if(demo)return {...fallback,fetchedAt:new Date().toISOString()};
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session?.access_token)throw new Error('Iniciá sesión para obtener la vista previa.');
+  const response=await fetch('/api/resource-preview',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+    body:JSON.stringify({url}),
+  });
+  const json=await response.json();
+  if(!response.ok)throw new Error(json?.error||'No se pudo analizar este enlace.');
+  return json as {title:string;description:string;image:string;site:string;kind:string;fetchedAt:string};
+}
 export async function insertTask(workspaceId:string,userId:string,t:any,members:any[]) {
   const assignee=members.find((m:any)=>m.name===t.assignee);
   const {data,error}=await supabase.from('tasks').insert({workspace_id:workspaceId,production_id:t.productionId||null,assignee_id:assignee?.id??null,created_by:userId,title:t.title,status:taskStatusToDb[t.status]??'pending',priority:t.priority,due_at:dueIso(t.dueDate)}).select('id').single(); if(error) throw error; return data.id as string;
