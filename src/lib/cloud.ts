@@ -297,7 +297,14 @@ export async function removeProductionCover(workspaceId:string,productionId:stri
   if(error||!data)throw error||new Error('No tenés permiso para quitar esta portada.');
   if(old?.cover_storage_path)await supabase.storage.from('avodah-files').remove([old.cover_storage_path]).catch(()=>{});
 }
-export async function deleteProduction(productionId:string) { const {error}=await supabase.from('productions').delete().eq('id',productionId); if(error) throw error; }
+export async function deleteProduction(productionId:string) {
+  const {data:existing}=await supabase.from('productions').select('cover_storage_path').eq('id',productionId).maybeSingle();
+  const {error}=await supabase.from('productions').delete().eq('id',productionId);
+  if(error)throw error;
+  if(existing?.cover_storage_path){
+    await supabase.storage.from('avodah-files').remove([existing.cover_storage_path]).catch(()=>{});
+  }
+}
 export async function updateProductionNotes(productionId:string,notes:string) { const {error}=await supabase.from('productions').update({notes}).eq('id',productionId); if(error) throw error; }
 export async function updateBlock(blockId:string,b:any,members:any[]) { const responsible=members.find((m:any)=>m.name===b.responsible); const {error}=await supabase.from('rundown_blocks').update({type:b.type,title:b.title,duration_min:b.duration,responsible_id:responsible?.id??b.responsibleId??null,notes:b.notes,status:b.status}).eq('id',blockId); if(error) throw error; }
 export async function deleteBlock(blockId:string) { const {error}=await supabase.from('rundown_blocks').delete().eq('id',blockId); if(error) throw error; }
