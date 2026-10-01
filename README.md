@@ -13,3 +13,7 @@ Workspace colaborativo para equipos de radio, streaming, podcasts y producción 
 **Importante:** no subir `.env.local`, claves `service_role` ni contraseñas. La clave `sb_publishable_` es pública y Supabase protege los datos mediante políticas RLS.
 
 La base Supabase AVODAH ya existe y está provisionada por separado. Consulta `DEPLOY_VERCEL.md` para los detalles.
+
+## Despliegues automáticos
+
+Vercel está conectado a la rama `main`. Los cambios realizados en esta rama activan una nueva compilación y despliegue automático. El estado y los registros pueden consultarse desde el panel de Vercel del proyecto `avodah`.
