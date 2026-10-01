@@ -2,7 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { LayoutDashboard, Radio, Lightbulb, BookOpen, CalendarDays, CheckSquare, MessageCircle, Users, Settings, Video, Search, Plus, ArrowUpRight, Mic2, Clock3, Menu, X, ChevronRight, ListChecks, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Radio, Lightbulb, BookOpen, CalendarDays, CheckSquare, MessageCircle, Users, Settings as SettingsIcon, Video, Search, Plus, ArrowUpRight, Mic2, Clock3, Menu, X, ChevronRight, ListChecks, type LucideIcon } from 'lucide-react';
 import {
   archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, updateBlockPosition, updateMemberRole, updateProduction, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment,
 } from '@/lib/cloud';
@@ -236,7 +236,7 @@ export default function Home(){
   const openProduction=(pid:string)=>{setSelectedProduction(pid);setSection('producciones');setProductionTab('escaleta')};
   const startProgram=(pid:string)=>{setSelectedProduction(pid);setProgramIndex(0);setTimer(0);setTimerRunning(false);setProgramMode(true)};
   const isCloud=mode==='cloud';
-  const navItems: Array<[Section, LucideIcon, string]> = [['inicio',LayoutDashboard,'Inicio'],['producciones',Radio,'Producciones'],['ideas',Lightbulb,'Ideas'],['biblioteca',BookOpen,'Biblioteca'],['calendario',CalendarDays,'Calendario'],['tareas',CheckSquare,'Tareas'],['chat',MessageCircle,'Chat'],['equipo',Users,'Equipo'],['configuracion',Settings,'Configuración']];
+  const navItems: Array<[Section, LucideIcon, string]> = [['inicio',LayoutDashboard,'Inicio'],['producciones',Radio,'Producciones'],['ideas',Lightbulb,'Ideas'],['biblioteca',BookOpen,'Biblioteca'],['calendario',CalendarDays,'Calendario'],['tareas',CheckSquare,'Tareas'],['chat',MessageCircle,'Chat'],['equipo',Users,'Equipo'],['configuracion',SettingsIcon,'Configuración']];
   const quickSearch=[...productions.map(p=>({id:p.id,title:p.title,type:'Producción',section:'producciones' as Section})),...ideas.filter(i=>!i.archived).map(i=>({id:i.id,title:i.title,type:'Idea',section:'ideas' as Section})),...tasks.map(t=>({id:t.id,title:t.title,type:'Tarea',section:'tareas' as Section}))].filter(item=>globalSearch.trim()&&item.title.toLocaleLowerCase('es').includes(globalSearch.trim().toLocaleLowerCase('es'))).slice(0,6);
   const currentMember=members.find(m=>m.id===user?.id)??members.find(m=>m.name===currentUserName);
 
