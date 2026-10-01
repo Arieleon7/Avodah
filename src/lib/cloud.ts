@@ -32,6 +32,15 @@ export async function signUp(email: string, password: string, fullName: string) 
   const emailRedirectTo = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}${window.location.search}` : undefined;
   return supabase.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo } });
 }
+export async function signInWithGoogle() {
+  if (typeof window === 'undefined') throw new Error('Iniciá sesión desde el navegador.');
+  const redirectTo = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+  return supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo, scopes: 'openid email profile' },
+  });
+}
+
 export async function signOut() { return supabase.auth.signOut(); }
 
 export async function listWorkspaces() {
