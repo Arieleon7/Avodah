@@ -81,7 +81,7 @@ export function ResourceLibrary({items,productions,onNew,onNewFile,onLink,onArch
  </>;
 }
 
-function ResourceLinkCreate({demo,close,onLibrary}:{demo:boolean;close:()=>void;onLibrary:(item:ResourceItem)=>void|Promise<void>}){
+function ResourceLinkCreate({demo,close,onLibrary,onSwitchToFile}:{demo:boolean;close:()=>void;onLibrary:(item:ResourceItem)=>void|Promise<void>;onSwitchToFile:()=>void}){
  const [url,setUrl]=useState(''),[title,setTitle]=useState(''),[manualTitle,setManualTitle]=useState(false),[note,setNote]=useState(''),[category,setCategory]=useState('Link'),[manualCategory,setManualCategory]=useState(false),[source,setSource]=useState(''),[tags,setTags]=useState(''),[preview,setPreview]=useState<ResourcePreview|null>(null),[fetching,setFetching]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState('');
  const sequence=useRef(0);
  useEffect(()=>{
@@ -113,6 +113,7 @@ function ResourceLinkCreate({demo,close,onLibrary}:{demo:boolean;close:()=>void;
  };
  return <div className="modal-backdrop" onMouseDown={e=>{if(e.currentTarget===e.target)close()}}><form className="modal resource-create-modal" onSubmit={e=>{void submit(e)}}>
   <div className="resource-modal-heading"><div><span className="panel-kicker">BIBLIOTECA · NUEVO RECURSO</span><h2>Guardar recurso</h2><p>Pegá un enlace para obtener su título e imagen automáticamente.</p></div><button type="button" aria-label="Cerrar" onClick={close}><X size={20}/></button></div>
+  <div className="resource-save-tabs"><button type="button" className="active"><Globe2 size={16}/> Pegar enlace</button><button type="button" onClick={onSwitchToFile}><UploadCloud size={16}/> Subir archivo</button></div>
   <label className="field">Enlace (opcional si es una nota)<input className="input" type="url" value={url} onChange={e=>{setUrl(e.target.value);setPreview(null);setSource('')}} placeholder="https://youtu.be/…"/></label>
   {fetching&&<div className="resource-fetching" role="status"><RefreshCw className="spinning" size={16}/> Recuperando vista previa…</div>}
   {preview&&<div className="resource-draft-preview"><ResourceMedia item={{id:'draft',title:title||preview.title||'Nuevo recurso',url,note,category,source:source||preview.site,tags:[],...previewFields(preview)}}/><div><strong>{preview.title||title||'Vista previa'}</strong><small>{preview.site||resourceHost(url)}</small>{preview.description&&<p>{preview.description}</p>}</div></div>}
@@ -123,4 +124,60 @@ function ResourceLinkCreate({demo,close,onLibrary}:{demo:boolean;close:()=>void;
   {error&&<div className="notice error-notice" role="alert">{error}</div>}
   <div className="modal-actions"><button className="btn" type="button" onClick={close}>Cancelar</button><button className="btn primary" type="submit" disabled={saving||fetching}>{saving?'Guardando…':'Guardar recurso'}</button></div>
  </form></div>;
+}
+
+
+export type UploadResourceInfo={title:string;category:string;note:string;source:string;tags:string[]};
+
+function ResourceFileUpload({demo,close,onUpload,onSwitchToLink}:{demo:boolean;close:()=>void;onUpload:(file:File,i:UploadResourceInfo)=>void|Promise<void>;onSwitchToLink:()=>void}){
+ const [file,setFile]=useState<File|null>(null),[previewUrl,setPreviewUrl]=useState(''),[title,setTitle]=useState(''),[category,setCategory]=useState('Documento'),[note,setNote]=useState(''),[tags,setTags]=useState(''),[dragging,setDragging]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[stage,setStage]=useState('');
+ const inputRef=useRef<HTMLInputElement>(null);
+ useEffect(()=>{if(!file){setPreviewUrl('');return;}const link=URL.createObjectURL(file);setPreviewUrl(link);return()=>URL.revokeObjectURL(link)},[file]);
+ const selectFile=(newFile:File|undefined)=>{
+  if(!newFile)return;
+  try{
+   const info=inspectResourceFile(newFile);
+   setFile(newFile);setTitle(newFile.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' '));setError('');
+   setCategory(info.kind==='video'?'Video':info.kind==='audio'?'Audio':info.kind==='image'?'Imagen':'Documento');
+  }catch(e){setError(e instanceof Error?e.message:'Archivo no válido.');setFile(null)}
+ };
+ const onDrop=(e:DragEvent<HTMLDivElement>)=>{e.preventDefault();setDragging(false);selectFile(e.dataTransfer.files?.[0])};
+ const submit=async(e:FormEvent<HTMLFormElement>)=>{
+  e.preventDefault();
+  if(demo){setError('Iniciá sesión con Google para subir archivos privados y compartirlos con tu equipo.');return;}
+  if(!file){setError('Seleccioná un archivo.');return;}
+  if(!title.trim()){setError('Escribí un título.');return;}
+  setBusy(true);setError('');setStage('Subiendo el archivo al espacio privado…');
+  try{await onUpload(file,{title:title.trim(),category,note,source:'Archivo compartido',tags:tags.split(',').map(t=>t.trim()).filter(Boolean)});setStage('Archivo guardado.');close();}
+  catch(e){setError(e instanceof Error?e.message:'No se pudo subir el archivo.');setStage('')}finally{setBusy(false)}
+ };
+ const type= file?inspectResourceFile(file).kind:'document';
+ return <div className="modal-backdrop" onMouseDown={e=>{if(e.currentTarget===e.target&&!busy)close()}}><form className="modal resource-create-modal" onSubmit={e=>{void submit(e)}}>
+   <div className="resource-modal-heading"><div><span className="panel-kicker">BIBLIOTECA · ARCHIVO COMPARTIDO</span><h2>Subir un archivo</h2><p>Guardá archivos de lectura, audio, video e imágenes para tu equipo.</p></div><button type="button" aria-label="Cerrar" onClick={close} disabled={busy}><X size={20}/></button></div>
+   <div className="resource-save-tabs"><button type="button" onClick={onSwitchToLink} disabled={busy}><Globe2 size={16}/> Pegar enlace</button><button type="button" className="active"><UploadCloud size={16}/> Subir archivo</button></div>
+   <div className={dragging?'resource-file-dropzone dragging':'resource-file-dropzone'} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setDragging(false)}} onDrop={onDrop}>
+     <UploadCloud size={31} strokeWidth={1.5}/><strong>{file?file.name:'Arrastrá tu archivo acá'}</strong>
+     <small>{file?fileSize(file.size)+' · '+category:'PDF, Word, PowerPoint, Excel, imágenes, MP3, WAV, MP4 o MOV · Máximo 50 MB'}</small>
+     <input ref={inputRef} type="file" accept=".pdf,.doc,.docx,.txt,.rtf,.odt,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif,.mp3,.wav,.m4a,.ogg,.flac,.aac,.mp4,.mov,.webm,.m4v" aria-label="Elegir archivo para subir" onChange={e=>selectFile(e.target.files?.[0])} disabled={busy}/>
+     <button type="button" className="btn" onClick={()=>inputRef.current?.click()} disabled={busy}>{file?'Elegir otro archivo':'Examinar archivos'}</button>
+   </div>
+   {file&&previewUrl&&<div className="resource-upload-preview">
+     {type==='image'?<img src={previewUrl} alt={'Vista previa de '+file.name}/>:type==='audio'?<audio controls preload="metadata" src={previewUrl}/>:type==='video'?<video controls playsInline preload="metadata" src={previewUrl}/>:type==='document'&&file.type==='application/pdf'?<iframe title="Vista previa del PDF seleccionado" src={previewUrl+'#toolbar=0'}/>:<div className="resource-upload-fallback"><FileText size={34}/><span>{file.name}</span><small>La lectura se abre con el programa compatible después de subirlo.</small></div>}
+   </div>}
+   {demo&&<div className="resource-file-warning"><CloudOff size={18}/><span>El modo demo no guarda archivos. Iniciá sesión con Google para habilitar el almacenamiento privado compartido.</span></div>}
+   <div className="resource-upload-details">
+     <label className="field">Título para la Biblioteca<input className="input" value={title} onChange={e=>setTitle(e.target.value)} required placeholder="Nombre del recurso" disabled={busy}/></label>
+     <label className="field">Notas del equipo<textarea className="textarea" value={note} onChange={e=>setNote(e.target.value)} rows={6} placeholder="Podés escribir un resumen, instrucciones de uso, fragmentos importantes…" disabled={busy}/></label>
+     <div className="form-row"><label className="field">Tipo<select className="select" value={category} onChange={e=>setCategory(e.target.value)} disabled={busy}>{['Documento','Audio','Video','Imagen','Investigación','Referencia','Canción'].map(x=><option key={x}>{x}</option>)}</select></label><label className="field">Etiquetas<input className="input" value={tags} onChange={e=>setTags(e.target.value)} placeholder="archivo, audio, guion…" disabled={busy}/></label></div>
+   </div>
+   {stage&&<div className="resource-upload-stage" role="status"><RefreshCw className="spinning" size={16}/>{stage}</div>}
+   {error&&<div className="notice error-notice" role="alert">{error}</div>}
+   <div className="modal-actions"><button className="btn" type="button" disabled={busy} onClick={close}>Cancelar</button><button className="btn primary" type="submit" disabled={busy||demo||!file}>{busy?'Subiendo…':'Subir y compartir'}</button></div>
+ </form></div>;
+}
+export function ResourceCreate({demo,close,onLibrary,onUpload,initialTab='link'}:{demo:boolean;close:()=>void;onLibrary:(item:ResourceItem)=>void|Promise<void>;onUpload:(file:File,i:UploadResourceInfo)=>void|Promise<void>;initialTab?:'link'|'file'}){
+ const [tab,setTab]=useState(initialTab);
+ return tab==='file'
+ ?<ResourceFileUpload demo={demo} close={close} onUpload={onUpload} onSwitchToLink={()=>setTab('link')}/>
+ :<ResourceLinkCreate demo={demo} close={close} onLibrary={onLibrary} onSwitchToFile={()=>setTab('file')}/>;
 }
