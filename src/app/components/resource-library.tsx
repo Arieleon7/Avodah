@@ -96,7 +96,7 @@ export function ResourceCreate({demo,close,onLibrary}:{demo:boolean;close:()=>vo
     if(!manualCategory)setCategory(({youtube:'Video',spotify:'Canción',document:'Documento',image:'Imagen',article:'Noticia',link:'Link'} as Record<string,string>)[p.kind]||'Link');
    }catch(e){
     if(sequence.current!==id)return;
-    const p={...guessResourcePreview(valid),fetchedAt:new Date().toISOString()};
+    const p:ResourcePreview={...guessResourcePreview(valid),fetchedAt:new Date().toISOString()};
     setPreview(p);if(!manualTitle&&p.title)setTitle(p.title);setSource(s=>s||p.site);
     setError(e instanceof Error?e.message:'No se pudo recuperar la vista previa. Podés guardar el enlace.');
    }finally{if(sequence.current===id)setFetching(false)}
