@@ -2,12 +2,12 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import {ResourceLibrary,ResourceQuickView,ResourceMedia,ResourceCreate,previewFields} from './components/resource-library';
+import {ResourceLibrary,ResourceQuickView,ResourceMedia,ResourceCreate,previewFields,type UploadResourceInfo} from './components/resource-library';
 import {BlockEditorDialog,CalendarEditorDialog,WorkspaceEditorDialog,FlexibleTextArea,type BlockDraft,type CalendarDraft,type WorkspaceDraft} from './components/editor-dialogs';
 import {safeResourceUrl,guessResourcePreview,type ResourcePreview} from '@/lib/resource-preview';
 import { LayoutDashboard, Radio, Lightbulb, BookOpen, CalendarDays, CheckSquare, MessageCircle, Users, Settings as SettingsIcon, Video, Search, Plus, ArrowUpRight, Mic2, Clock3, Menu, X, ChevronRight, ListChecks, type LucideIcon } from 'lucide-react';
 import {
-  archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, updateLibraryPreview, updateLibraryItem as cloudUpdateLibraryItem, requestResourcePreview, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, updateBlockPosition, updateMemberRole, updateProduction, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment,
+  archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, uploadLibraryFile, updateLibraryPreview, updateLibraryItem as cloudUpdateLibraryItem, requestResourcePreview, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, updateBlockPosition, updateMemberRole, updateProduction, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment,
 } from '@/lib/cloud';
 
 type Section = 'inicio'|'producciones'|'ideas'|'biblioteca'|'calendario'|'tareas'|'chat'|'equipo'|'configuracion'|'reunion';
@@ -17,7 +17,7 @@ type Production = {id:string;title:string;type:string;status:Status;date:string;
 type Block = {id:string;productionId:string;order:number;type:string;title:string;duration:number;responsible:string;responsibleId?:string|null;notes:string;status:string};
 type IdeaComment = {id:string;author:string;authorId?:string;text:string;time:string};
 type Idea = {id:string;title:string;description:string;tags:string[];author:string;reactions:number;comments:number;commentItems?:IdeaComment[];archived?:boolean};
-type LibraryItem = {id:string;title:string;category:string;url:string;note:string;source:string;tags:string[];previewTitle?:string;previewDescription?:string;previewImage?:string;previewSite?:string;previewKind?:string;previewFetchedAt?:string};
+type LibraryItem = {id:string;title:string;category:string;url:string;note:string;source:string;tags:string[];previewTitle?:string;previewDescription?:string;previewImage?:string;previewSite?:string;previewKind?:string;previewFetchedAt?:string;storagePath?:string;fileName?:string;fileMime?:string;fileSize?:number;fileUrl?:string};
 type Task = {id:string;title:string;status:TaskStatus;assignee:string;due:string;dueDate?:string;dueAt?:string|null;priority:string;productionId?:string};
 type Attachment = {id:string;name:string;mimeType:string;size:number;url:string};
 type Reaction = {userId:string;emoji:string};
@@ -113,6 +113,7 @@ export default function Home(){
   const [hydrated,setHydrated]=useState(false);
   const [calendarCreateOpen,setCalendarCreateOpen]=useState(false);
   const [workspaceCreateOpen,setWorkspaceCreateOpen]=useState(false);
+  const [resourceModalTab,setResourceModalTab]=useState<'link'|'file'>('link');
 
   const loadCloud=useCallback(async(wid:string)=>{
     const snap=await loadWorkspaceSnapshot(wid);
@@ -214,6 +215,11 @@ export default function Home(){
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el recurso.');throw err}
     }else setLibrary(x=>[item,...x]);
   };
+  const handleUploadFile=async(file:File,info:UploadResourceInfo)=>{
+    if(mode!=='cloud'||!user)throw new Error('Iniciá sesión con Google para subir archivos.');
+    try{setCloudError('');await uploadLibraryFile(workspace.id,user.id,file,info);await loadCloud(workspace.id)}
+    catch(err){setCloudError(err instanceof Error?err.message:'No se pudo subir el archivo.');throw err}
+  };
   const handlePreviewResource=async(i:LibraryItem)=>{
     let preview:ResourcePreview={...guessResourcePreview(i.url),fetchedAt:new Date().toISOString()};
     try {preview=await requestResourcePreview(i.url,mode==='demo')} catch {/* Keep provider fallback for inaccessible sites. */}
@@ -306,7 +312,7 @@ export default function Home(){
        section==='inicio'?<Dashboard productions={productions} ideas={ideas} library={library} tasks={tasks} messages={messages} currentUserName={currentUserName} workspaceName={workspace.name} openProduction={openProduction} setModal={setModal} go={go}/>:
        section==='producciones'?<Productions productions={productions} openProduction={openProduction} setModal={setModal}/>:
        section==='ideas'?<Ideas ideas={ideas} setModal={setModal} onReact={handleReactIdea} onComment={handleCommentIdea} onArchive={handleArchiveIdea} onConvert={handleConvertIdea}/>:
-       section==='biblioteca'?<ResourceLibrary items={library} productions={productions} onNew={()=>setModal('library')} onLink={handleLinkResource} onArchive={handleArchiveLibrary} onPreview={handlePreviewResource} onUpdate={handleUpdateLibrary}/>:
+       section==='biblioteca'?<ResourceLibrary items={library} productions={productions} onNew={()=>{setResourceModalTab('link');setModal('library')}} onNewFile={()=>{setResourceModalTab('file');setModal('library')}} onLink={handleLinkResource} onArchive={handleArchiveLibrary} onPreview={handlePreviewResource} onUpdate={handleUpdateLibrary}/>:
        section==='calendario'?<Calendar productions={productions} tasks={tasks} events={calendarEvents} onCreate={handleCreateEvent} onDelete={handleDeleteEvent}/>:
        section==='tareas'?<Tasks tasks={tasks} setModal={setModal} onStatus={handleTaskStatus} onDelete={handleDeleteTask}/>:
        section==='chat'?<Chat channels={channels} channel={channel} setChannel={setChannel} messages={messages} onSend={handleSend} onReact={handleMessageReaction} onPin={handlePinMessage} currentUserId={user?.id} cloud={isCloud}/>:
@@ -321,7 +327,7 @@ export default function Home(){
 
     {calendarCreateOpen&&<CalendarEditorDialog onClose={()=>setCalendarCreateOpen(false)} onSave={handleSaveCalendar}/>}
     {workspaceCreateOpen&&<WorkspaceEditorDialog onClose={()=>setWorkspaceCreateOpen(false)} onSave={handleCreateWorkspaceFromEditor}/>}
-    {modal&&<Modal kind={modal} close={()=>setModal(null)} productions={productions} currentUserName={currentUserName} demo={mode==='demo'} onProduction={handleProduction} onIdea={handleIdea} onLibrary={handleLibrary} onTask={handleTask}/>} 
+    {modal&&<Modal kind={modal} initialTab={resourceModalTab} onUpload={handleUploadFile} close={()=>{setModal(null);setResourceModalTab('link')}} productions={productions} currentUserName={currentUserName} demo={mode==='demo'} onProduction={handleProduction} onIdea={handleIdea} onLibrary={handleLibrary} onTask={handleTask}/>} 
     {programMode&&currentProduction&&<ProgramMode p={currentProduction} blocks={currentBlocks} index={programIndex} setIndex={setProgramIndex} timer={timer} setTimer={setTimer} running={timerRunning} setRunning={setTimerRunning} close={()=>setProgramMode(false)}/>} 
   </div>
 }
@@ -462,7 +468,7 @@ function Settings({workspace,setWorkspace,onSave,onCreateWorkspace,cloud}:{works
 
 function Meeting({workspace}:{workspace:Workspace}){const room=`avodah-${workspace.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;const url=`https://meet.jit.si/${room}`;return <><Header title="Reunión" subtitle={`Sala del equipo · ${workspace.name}`}><a className="btn" href={url} target="_blank">Abrir en nueva pestaña ↗</a></Header><div className="notice">La videollamada usa Jitsi, sin requerir una cuenta adicional para esta primera versión. Más adelante podemos integrar LiveKit para una experiencia totalmente embebida.</div><div className="meeting"><div className="meeting-bar"><strong>🎥 {room}</strong><span className="pill green">Sala lista</span></div><iframe className="jitsi" src={url} allow="camera; microphone; fullscreen; display-capture" title="Sala de reunión AVODAH"/></div></>}
 
-function Modal({kind,close,productions,currentUserName,demo,onProduction,onIdea,onLibrary,onTask}:{kind:Exclude<ModalKind,null>;close:()=>void;productions:Production[];currentUserName:string;demo:boolean;onProduction:(x:Production)=>void|Promise<void>;onIdea:(x:Idea)=>void|Promise<void>;onLibrary:(x:LibraryItem)=>void|Promise<void>;onTask:(x:Task)=>void|Promise<void>}){if(kind==='library')return <ResourceCreate demo={demo} close={close} onLibrary={onLibrary}/>;const submit=(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const fd=new FormData(e.currentTarget);const title=String(fd.get('title')||'').trim();if(!title)return;
+function Modal({kind,close,productions,currentUserName,demo,initialTab,onUpload,onProduction,onIdea,onLibrary,onTask}:{kind:Exclude<ModalKind,null>;close:()=>void;productions:Production[];currentUserName:string;demo:boolean;initialTab:'link'|'file';onUpload:(file:File,info:UploadResourceInfo)=>Promise<void>;onProduction:(x:Production)=>void|Promise<void>;onIdea:(x:Idea)=>void|Promise<void>;onLibrary:(x:LibraryItem)=>void|Promise<void>;onTask:(x:Task)=>void|Promise<void>}){if(kind==='library')return <ResourceCreate key={initialTab} initialTab={initialTab} demo={demo} close={close} onLibrary={onLibrary} onUpload={onUpload}/>;const submit=(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const fd=new FormData(e.currentTarget);const title=String(fd.get('title')||'').trim();if(!title)return;
  if(kind==='production')onProduction({id:id('p'),title,type:String(fd.get('type')||'Podcast'),status:'Idea',date:String(fd.get('date')||'2026-10-10'),time:String(fd.get('time')||'19:00'),duration:Number(fd.get('duration')||60),completion:5,topic:String(fd.get('topic')||title),question:String(fd.get('question')||''),objective:'Definir objetivo',description:String(fd.get('description')||''),references:[],hosts:[currentUserName],guests:[],notes:'',members:['m1']});
  if(kind==='idea')onIdea({id:id('i'),title,description:String(fd.get('description')||''),tags:String(fd.get('tags')||'').split(',').map(x=>x.trim()).filter(Boolean),author:currentUserName,reactions:0,comments:0});
 
