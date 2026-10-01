@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import {parseYoutubeLive,validateCoverFile} from './production-media';
 
 const productionStatusFromDb: Record<string, string> = {
   idea: 'Idea', preparing: 'En preparación', ready: 'Listo', live: 'En vivo', published: 'Emitido', archived: 'Archivado',
@@ -142,11 +143,17 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
     return {id:item.id,fileUrl:error?'':data?.signedUrl||''};
   }));
   const resourceFileUrls=new Map(resourceFileLinks.map(item=>[item.id,item.fileUrl]));
+  const covers=await Promise.all(productionRows.map(async(p:any)=>{
+    if(!p.cover_storage_path)return {id:p.id,url:''};
+    const {data}=await supabase.storage.from('avodah-files').createSignedUrl(p.cover_storage_path,3600);
+    return {id:p.id,url:data?.signedUrl||''};
+  }));
+  const productionCoverUrls=new Map(covers.map(item=>[item.id,item.url]));
   const workspaceRow:any = workspaceRes.data;
   return {
     workspace:{id:workspaceRow.id,name:workspaceRow.name,type:workspaceRow.production_type,description:workspaceRow.description,initials:initials(workspaceRow.name),accent:workspaceRow.accent_color},
     members:memberRows.map((m:any)=>{const p=profileMap.get(m.user_id);const name=p?.full_name||'Integrante';return {id:m.user_id,name,initials:initials(name),role:roleLabel[m.role]??m.role,status:'Disponible',color:'#5c5148',avatarUrl:p?.avatar_url??null};}),
-    productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[]};}),
+    productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[],coverPath:p.cover_storage_path||'',coverUrl:productionCoverUrls.get(p.id)||'',youtubeLiveUrl:p.youtube_live_url||''};}),
     blocks:(blockRes.data ?? []).map((b:any)=>({id:b.id,productionId:b.production_id,order:b.position,type:b.type,title:b.title,duration:b.duration_min,responsible:nameOf(b.responsible_id),responsibleId:b.responsible_id,notes:b.notes,status:b.status})),
     ideas:(ideaRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,description:i.description,tags:i.tags??[],author:nameOf(i.author_id),authorId:i.author_id,reactions:reactionCount.get(i.id)||0,comments:(commentsByIdea.get(i.id)||[]).length,commentItems:commentsByIdea.get(i.id)||[],archived:i.archived})),
     library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,category:i.category,url:i.url??'',note:i.note,source:i.source,tags:i.tags??[],previewTitle:i.preview_title||'',previewDescription:i.preview_description||'',previewImage:i.preview_image||'',previewSite:i.preview_site||'',previewKind:i.preview_kind||'',previewFetchedAt:i.preview_fetched_at||'',storagePath:i.storage_path||'',fileName:i.file_name||'',fileMime:i.mime_type||'',fileSize:Number(i.file_size||0),fileUrl:resourceFileUrls.get(i.id)||''})),
@@ -159,7 +166,7 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
 
 export async function insertProduction(workspaceId:string,userId:string,p:any) {
   const { data, error } = await supabase.from('productions').insert({
-    workspace_id:workspaceId,created_by:userId,title:p.title,format:p.type,status:productionStatusToDb[p.status]??'idea',scheduled_at:scheduledIso(p.date,p.time),duration_min:p.duration,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,reference_notes:p.references,hosts:p.hosts,guests:p.guests,notes:p.notes,
+    workspace_id:workspaceId,created_by:userId,title:p.title,format:p.type,status:productionStatusToDb[p.status]??'idea',scheduled_at:scheduledIso(p.date,p.time),duration_min:p.duration,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,reference_notes:p.references,hosts:p.hosts,guests:p.guests,notes:p.notes,youtube_live_url:p.youtubeLiveUrl?parseYoutubeLive(p.youtubeLiveUrl)?.url||null:null,
   }).select('id').single();
   if (error) throw error;
   await supabase.from('production_members').insert({ production_id:data.id,user_id:userId,role:'owner' });
@@ -260,10 +267,35 @@ export async function updateWorkspace(workspaceId:string,w:any) { const {error}=
 
 export async function updateProduction(productionId:string,p:any) {
   const { error } = await supabase.from('productions').update({
-    title:p.title,format:p.type,status:productionStatusToDb[p.status]??'idea',scheduled_at:scheduledIso(p.date,p.time),duration_min:p.duration,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,reference_notes:p.references,hosts:p.hosts,guests:p.guests,notes:p.notes,
+    title:p.title,format:p.type,status:productionStatusToDb[p.status]??'idea',scheduled_at:scheduledIso(p.date,p.time),duration_min:p.duration,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,reference_notes:p.references,hosts:p.hosts,guests:p.guests,notes:p.notes,youtube_live_url:p.youtubeLiveUrl?parseYoutubeLive(p.youtubeLiveUrl)?.url||null:null,
   }).eq('id',productionId);
   if(error) throw error;
   await supabase.from('chat_channels').update({name:p.title}).eq('production_id',productionId);
+}
+export async function uploadProductionCover(workspaceId:string,productionId:string,file:File){
+  const info=validateCoverFile(file);
+  const {data:old,error:readError}=await supabase.from('productions').select('cover_storage_path').eq('workspace_id',workspaceId).eq('id',productionId).single();
+  if(readError)throw readError;
+  const random=typeof crypto!=='undefined'&&crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
+  const path=workspaceId+'/production-covers/'+productionId+'/'+random+'.'+info.ext;
+  const {error:uploadError}=await supabase.storage.from('avodah-files').upload(path,file,{contentType:info.mime,upsert:false,cacheControl:'3600'});
+  if(uploadError)throw uploadError;
+  const {data, error}=await supabase.from('productions').update({cover_storage_path:path}).eq('id',productionId).eq('workspace_id',workspaceId).select('id').maybeSingle();
+  if(error||!data){
+    await supabase.storage.from('avodah-files').remove([path]).catch(()=>{});
+    throw error||new Error('No tenés permiso para actualizar la portada.');
+  }
+  if(old?.cover_storage_path&&old.cover_storage_path!==path){
+    await supabase.storage.from('avodah-files').remove([old.cover_storage_path]).catch(()=>{});
+  }
+  return path;
+}
+export async function removeProductionCover(workspaceId:string,productionId:string){
+  const {data:old,error:readError}=await supabase.from('productions').select('cover_storage_path').eq('id',productionId).eq('workspace_id',workspaceId).single();
+  if(readError)throw readError;
+  const {data,error}=await supabase.from('productions').update({cover_storage_path:null}).eq('id',productionId).eq('workspace_id',workspaceId).select('id').maybeSingle();
+  if(error||!data)throw error||new Error('No tenés permiso para quitar esta portada.');
+  if(old?.cover_storage_path)await supabase.storage.from('avodah-files').remove([old.cover_storage_path]).catch(()=>{});
 }
 export async function deleteProduction(productionId:string) { const {error}=await supabase.from('productions').delete().eq('id',productionId); if(error) throw error; }
 export async function updateProductionNotes(productionId:string,notes:string) { const {error}=await supabase.from('productions').update({notes}).eq('id',productionId); if(error) throw error; }
