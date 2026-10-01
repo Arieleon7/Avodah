@@ -124,8 +124,8 @@ export default function Home(){
     setMessages(snap.messages as Message[]);
     setCalendarEvents((snap.calendarEvents??[]) as CalendarEvent[]);
     const general=(snap.channels as Channel[]).find(c=>c.id==='general')?.id ?? (snap.channels as Channel[])[0]?.id ?? 'general';
-    setChannel(general);
-    setSelectedProduction(null);
+    setChannel(current=>(snap.channels as Channel[]).some(c=>c.id===current)?current:general);
+    setSelectedProduction(current=>(snap.productions as Production[]).some(p=>p.id===current)?current:null);
     setHydrated(false);
     setMode('cloud');
     localStorage.setItem('avodah-active-workspace',wid);
@@ -206,18 +206,24 @@ export default function Home(){
       try {preview=await requestResourcePreview(i.url,mode==='demo')} catch {/* Keep provider fallback. */}
       item={...i,...previewFields(preview)};
     }
-    if(mode==='cloud'&&user)await cloudAction(async()=>{await insertLibraryItem(workspace.id,user.id,item)});
-    else setLibrary(x=>[item,...x]);
+    if(mode==='cloud'&&user){
+      try{setCloudError('');await insertLibraryItem(workspace.id,user.id,item);await loadCloud(workspace.id)}
+      catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el recurso.');throw err}
+    }else setLibrary(x=>[item,...x]);
   };
   const handlePreviewResource=async(i:LibraryItem)=>{
     let preview:ResourcePreview={...guessResourcePreview(i.url),fetchedAt:new Date().toISOString()};
     try {preview=await requestResourcePreview(i.url,mode==='demo')} catch {/* Keep provider fallback for inaccessible sites. */}
-    if(mode==='cloud')await cloudAction(async()=>{await updateLibraryPreview(i.id,preview)});
-    else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...previewFields(preview)}:item));
+    if(mode==='cloud'){
+      try{setCloudError('');await updateLibraryPreview(i.id,preview);await loadCloud(workspace.id)}
+      catch(err){setCloudError(err instanceof Error?err.message:'No se pudo actualizar la vista previa.');throw err}
+    }else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...previewFields(preview)}:item));
   };
   const handleUpdateLibrary=async(i:LibraryItem)=>{
-    if(mode==='cloud')await cloudAction(async()=>{await cloudUpdateLibraryItem(i.id,{title:i.title,note:i.note,category:i.category,source:i.source,tags:i.tags})});
-    else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...i}:item));
+    if(mode==='cloud'){
+      try{setCloudError('');await cloudUpdateLibraryItem(i.id,{title:i.title,note:i.note,category:i.category,source:i.source,tags:i.tags});await loadCloud(workspace.id)}
+      catch(err){setCloudError(err instanceof Error?err.message:'No se pudo editar el recurso.');throw err}
+    }else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...i}:item));
   };
   const handleTask=async(t:Task)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await insertTask(workspace.id,user.id,t,members)});else setTasks(x=>[t,...x])};
   const handleReactIdea=async(i:Idea)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await cloudReactIdea(i.id,user.id)});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,reactions:q.reactions+1}:q))};
