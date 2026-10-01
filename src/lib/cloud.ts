@@ -189,7 +189,7 @@ export async function updateLibraryItem(itemId:string,item:{title:string;note:st
   const {error}=await supabase.from('library_items').update(item).eq('id',itemId);
   if(error)throw error;
 }
-export async function requestResourcePreview(url:string,demo:boolean=false) {
+export async function requestResourcePreview(url:string,demo:boolean=false):Promise<import('./resource-preview').ResourcePreview> {
   const {guessResourcePreview}=await import('./resource-preview');
   const fallback=guessResourcePreview(url);
   if(demo)return {...fallback,fetchedAt:new Date().toISOString()};
@@ -202,7 +202,7 @@ export async function requestResourcePreview(url:string,demo:boolean=false) {
   });
   const json=await response.json();
   if(!response.ok)throw new Error(json?.error||'No se pudo analizar este enlace.');
-  return json as {title:string;description:string;image:string;site:string;kind:string;fetchedAt:string};
+  return json as import('./resource-preview').ResourcePreview;
 }
 export async function insertTask(workspaceId:string,userId:string,t:any,members:any[]) {
   const assignee=members.find((m:any)=>m.name===t.assignee);
