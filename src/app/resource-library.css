@@ -131,3 +131,9 @@
  .resource-modal-heading h2{font-size:21px}
  .resource-preview-body .resource-edit .textarea{min-height:180px}
 }
+
+/* Narrow-screen resource attachments inside productions. */
+.resource-attach{flex-wrap:wrap;justify-content:flex-end}
+.resource-attach>.select{flex:1;min-width:150px}
+.resource-attach>.btn{white-space:nowrap}
+@media(max-width:760px){.resource-attach{display:grid;grid-template-columns:minmax(0,1fr) auto;width:100%;min-width:0;gap:8px}.resource-attach>.btn:first-child{grid-column:1/-1}.resource-attach>.select{width:100%;min-width:0}}
