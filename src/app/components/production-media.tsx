@@ -3,7 +3,7 @@ import {useEffect,useState,type FormEvent,type ChangeEvent} from 'react';
 import {ArrowUpRight,Camera,ExternalLink,ImagePlus,PlayCircle,Radio,RefreshCw,Trash2,UploadCloud,X,Youtube} from 'lucide-react';
 import {parseYoutubeLive,validateCoverFile} from '@/lib/production-media';
 
-type ProductionCreation={
+export type ProductionCreation={
  id:string;title:string;type:string;status:'Idea';date:string;time:string;duration:number;completion:number;
  topic:string;question:string;objective:string;description:string;references:string[];hosts:string[];guests:string[];notes:string;members:string[];
  youtubeLiveUrl:string;
