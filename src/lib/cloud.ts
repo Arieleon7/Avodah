@@ -136,6 +136,12 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
     attachmentsByMessage.set(a.message_id,[...(attachmentsByMessage.get(a.message_id)||[]),{id:a.id,name:a.file_name,mimeType:a.mime_type,size:Number(a.file_size||0),url:signed?.signedUrl??''}]);
   }
 
+  const resourceFileLinks=await Promise.all((libraryRes.data??[]).map(async(item:any)=>{
+    if(!item.storage_path)return {id:item.id,fileUrl:''};
+    const {data,error}=await supabase.storage.from('avodah-files').createSignedUrl(item.storage_path,3600);
+    return {id:item.id,fileUrl:error?'':data?.signedUrl||''};
+  }));
+  const resourceFileUrls=new Map(resourceFileLinks.map(item=>[item.id,item.fileUrl]));
   const workspaceRow:any = workspaceRes.data;
   return {
     workspace:{id:workspaceRow.id,name:workspaceRow.name,type:workspaceRow.production_type,description:workspaceRow.description,initials:initials(workspaceRow.name),accent:workspaceRow.accent_color},
@@ -143,7 +149,7 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
     productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[]};}),
     blocks:(blockRes.data ?? []).map((b:any)=>({id:b.id,productionId:b.production_id,order:b.position,type:b.type,title:b.title,duration:b.duration_min,responsible:nameOf(b.responsible_id),responsibleId:b.responsible_id,notes:b.notes,status:b.status})),
     ideas:(ideaRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,description:i.description,tags:i.tags??[],author:nameOf(i.author_id),authorId:i.author_id,reactions:reactionCount.get(i.id)||0,comments:(commentsByIdea.get(i.id)||[]).length,commentItems:commentsByIdea.get(i.id)||[],archived:i.archived})),
-    library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,category:i.category,url:i.url??'',note:i.note,source:i.source,tags:i.tags??[],previewTitle:i.preview_title||'',previewDescription:i.preview_description||'',previewImage:i.preview_image||'',previewSite:i.preview_site||'',previewKind:i.preview_kind||'',previewFetchedAt:i.preview_fetched_at||''})),
+    library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,category:i.category,url:i.url??'',note:i.note,source:i.source,tags:i.tags??[],previewTitle:i.preview_title||'',previewDescription:i.preview_description||'',previewImage:i.preview_image||'',previewSite:i.preview_site||'',previewKind:i.preview_kind||'',previewFetchedAt:i.preview_fetched_at||'',storagePath:i.storage_path||'',fileName:i.file_name||'',fileMime:i.mime_type||'',fileSize:Number(i.file_size||0),fileUrl:resourceFileUrls.get(i.id)||''})),
     tasks:(taskRes.data ?? []).map((t:any)=>({id:t.id,title:t.title,status:taskStatusFromDb[t.status]??'Pendiente',assignee:nameOf(t.assignee_id)||'Sin asignar',assigneeId:t.assignee_id,due:t.due_at?new Date(t.due_at).toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'Sin fecha',dueAt:t.due_at,priority:t.priority,productionId:t.production_id??undefined})),
     channels:channels.map((c:any)=>({id:channelAlias.get(c.id)!,dbId:c.id,name:c.name,productionId:c.production_id??undefined,kind:c.kind})),
     messages:(messageRes.data ?? []).map((m:any)=>({id:m.id,channel:channelAlias.get(m.channel_id)??m.channel_id,dbChannelId:m.channel_id,author:nameOf(m.author_id),authorId:m.author_id,text:m.body,time:new Date(m.created_at).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),replyTo:m.reply_to,pinned:!!m.pinned_at,reactions:reactionsByMessage.get(m.id)||[],attachments:attachmentsByMessage.get(m.id)||[]})),
@@ -184,6 +190,43 @@ export async function updateLibraryPreview(itemId:string,preview:{
     preview_site:preview.site,preview_kind:preview.kind,preview_fetched_at:preview.fetchedAt||new Date().toISOString()
   }).eq('id',itemId);
   if(error)throw error;
+}
+export const RESOURCE_FILE_LIMIT=50*1024*1024;
+const RESOURCE_EXTENSIONS=new Set(['pdf','doc','docx','txt','rtf','odt','ppt','pptx','xls','xlsx','jpg','jpeg','png','webp','gif','mp3','wav','m4a','ogg','flac','aac','mp4','mov','webm','m4v']);
+const RESOURCE_MIME:Record<string,string>={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',txt:'text/plain',rtf:'application/rtf',odt:'application/vnd.oasis.opendocument.text',ppt:'application/vnd.ms-powerpoint',pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',gif:'image/gif',mp3:'audio/mpeg',wav:'audio/wav',m4a:'audio/mp4',ogg:'audio/ogg',flac:'audio/flac',aac:'audio/aac',mp4:'video/mp4',mov:'video/quicktime',webm:'video/webm',m4v:'video/x-m4v'};
+export function inspectResourceFile(file:File){
+ const extension=file.name.split('.').pop()?.toLowerCase()||'';
+ if(!RESOURCE_EXTENSIONS.has(extension))throw new Error('Formato no admitido. Usá Word, PDF, presentaciones, imágenes, audio o video.');
+ if(file.size===0)throw new Error('El archivo está vacío.');
+ if(file.size>RESOURCE_FILE_LIMIT)throw new Error('Este espacio admite archivos de hasta 50 MB. Para videos mayores, compartí un enlace.');
+ const mime=RESOURCE_MIME[extension]||file.type||'application/octet-stream';
+ const kind=mime.startsWith('video/')?'video':mime.startsWith('audio/')?'audio':mime.startsWith('image/')?'image':'document';
+ return {mime,kind,extension};
+}
+export async function resourceSignedUrl(storagePath:string,expiresIn:number=3600){
+ const {data,error}=await supabase.storage.from('avodah-files').createSignedUrl(storagePath,expiresIn);
+ if(error)throw error;
+ return data.signedUrl;
+}
+export async function uploadLibraryFile(workspaceId:string,userId:string,file:File,i:{
+ title:string;note:string;category:string;source:string;tags:string[]
+}){
+ const info=inspectResourceFile(file);
+ const safeName=(file.name.normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g,'-').slice(-100)||'archivo.'+info.extension);
+ const random=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);
+ const path=`${workspaceId}/resources/${random}/${safeName}`;
+ const {error:uploadError}=await supabase.storage.from('avodah-files').upload(path,file,{contentType:info.mime,upsert:false,cacheControl:'3600'});
+ if(uploadError)throw uploadError;
+ const {data,error}=await supabase.from('library_items').insert({
+   workspace_id:workspaceId,added_by:userId,title:i.title,category:i.category,source:i.source,
+   note:i.note,tags:i.tags,url:null,storage_path:path,file_name:file.name,mime_type:info.mime,file_size:file.size,
+   preview_title:i.title,preview_kind:info.kind,preview_site:'Archivo compartido',preview_fetched_at:new Date().toISOString()
+ }).select('id').single();
+ if(error){
+   await supabase.storage.from('avodah-files').remove([path]).catch(()=>{});
+   throw error;
+ }
+ return data.id as string;
 }
 export async function updateLibraryItem(itemId:string,item:{title:string;note:string;category:string;source:string;tags:string[]}) {
   const {error}=await supabase.from('library_items').update(item).eq('id',itemId);
