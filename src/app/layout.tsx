@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import './resource-library.css';
 import './editor-dialogs.css';
+import './mobile.css';
 
 export const metadata: Metadata = {
   title: 'AVODAH — Production Workspace',
