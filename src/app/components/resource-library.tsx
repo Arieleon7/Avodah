@@ -35,6 +35,13 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
  useEffect(()=>setDraft(item),[item]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key)},[onClose]);
  const preview=resourceInfo(item),url=safeResourceUrl(item.url),embed=resourceEmbed(url);
+ const isFile=!!item.storagePath||!!(item.fileName&&item.fileUrl);
+ const [freshFileUrl,setFreshFileUrl]=useState(item.fileUrl||'');
+ useEffect(()=>{let alive=true;
+  if(item.storagePath){void resourceSignedUrl(item.storagePath).then(link=>{if(alive)setFreshFileUrl(link)}).catch(()=>{if(alive)setError('No se pudo abrir el archivo privado. Comprobá tu sesión.')})}
+  else setFreshFileUrl(item.fileUrl||'');
+  return()=>{alive=false};
+ },[item.storagePath,item.fileUrl]);
  const refresh=async()=>{setBusy(true);setError('');try{await onPreview(item)}catch(e){setError(e instanceof Error?e.message:'No se pudo actualizar.')}finally{setBusy(false)}};
  const save=async()=>{if(!draft.title.trim()){setError('Escribí un título.');return;}setBusy(true);setError('');try{await onUpdate({...draft,title:draft.title.trim()});setEditing(false)}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.')}finally{setBusy(false)}};
  const copy=async()=>{try{await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setError('No se pudo copiar el enlace.')}};
@@ -42,7 +49,13 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
  <section className="resource-preview-dialog" role="dialog" aria-modal="true" aria-label={'Recurso: '+item.title}>
   <header className="resource-preview-header"><span>VISTA RÁPIDA DEL RECURSO</span><button aria-label="Cerrar" onClick={onClose}><X size={21}/></button></header>
   <div className="resource-preview-scroll">
-   {embed?<div className="resource-embed"><iframe src={embed} title={'Vista previa de '+item.title} loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/></div>:<ResourceMedia item={item}/>}
+   {isFile?<div className="resource-file-viewer">
+    {freshFileUrl&&item.fileMime?.startsWith('image/')?<img src={freshFileUrl} alt={item.fileName||item.title} referrerPolicy="no-referrer"/>:
+     freshFileUrl&&item.fileMime?.startsWith('audio/')?<div className="resource-player"><FileAudio size={38}/><audio controls preload="metadata" src={freshFileUrl}>El navegador no admite este audio.</audio></div>:
+     freshFileUrl&&item.fileMime?.startsWith('video/')?<video src={freshFileUrl} controls playsInline preload="metadata">El navegador no admite este video.</video>:
+     freshFileUrl&&item.fileMime==='application/pdf'?<iframe className="resource-pdf" src={freshFileUrl+'#toolbar=1'} title={'Vista previa del PDF '+item.title}/>:
+     <ResourceMedia item={{...item,fileUrl:freshFileUrl}}/>}
+   </div>:embed?<div className="resource-embed"><iframe src={embed} title={'Vista previa de '+item.title} loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/></div>:<ResourceMedia item={item}/>}
    <div className="resource-preview-body">
     <div className="resource-preview-meta"><span>{typeNames[preview.kind]||item.category}</span><span>{isFile?'Archivo privado · '+fileSize(item.fileSize||0):preview.site}</span></div>
     {editing?<div className="resource-edit">
