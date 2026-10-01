@@ -320,7 +320,10 @@ function OnboardingScreen({user,error,onCreate,onJoin,onSignOut}:{user:User;erro
 function Header({title,subtitle,children}:{title:string;subtitle:string;children?:React.ReactNode}){return <div className="topbar"><div><h1>{title}</h1><p>{subtitle}</p></div>{children&&<div className="actions">{children}</div>}</div>}
 
 function Dashboard({productions,ideas,library,tasks,messages,currentUserName,workspaceName,openProduction,setModal,go}:{productions:Production[];ideas:Idea[];library:LibraryItem[];tasks:Task[];messages:Message[];currentUserName:string;workspaceName:string;openProduction:(id:string)=>void;setModal:(x:ModalKind)=>void;go:(s:Section)=>void}){
-  const next=productions.filter(p=>!['Emitido','Archivado'].includes(p.status)).sort((a,b)=>(a.date||'9999')+(a.time||'') < (b.date||'9999')+(b.time||'')?-1:1)[0]??productions[0];
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const candidates=productions.filter(p=>!['Emitido','Archivado'].includes(p.status));
+  const chronological=(items:Production[])=>[...items].sort((a,b)=>`${a.date||'9999'}${a.time||''}`.localeCompare(`${b.date||'9999'}${b.time||''}`));
+  const next=chronological(candidates.filter(p=>!p.date||p.date>=today))[0]??chronological(candidates)[0]??productions[0];
   const pending=tasks.filter(t=>t.status!=='Hecho').slice(0,4);
   const dateLabel=new Intl.DateTimeFormat('es-AR',{weekday:'long',day:'numeric',month:'long',timeZone:'America/Argentina/Buenos_Aires'}).format(new Date());
   const greeting=currentUserName&&currentUserName!=='Vos'?currentUserName.split(/\s+/)[0]:'equipo';

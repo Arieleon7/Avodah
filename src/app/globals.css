@@ -344,3 +344,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   button{transition:none}
   .dashboard-quick-card:hover,.feature-open:hover{transform:none}
 }
+
+/* Responsive tablet auth: retain the editorial photo and brand on mid-sized devices. */
+@media(min-width:761px) and (max-width:980px){
+  .auth-shell{display:grid;grid-template-columns:minmax(0,.9fr) minmax(320px,1fr);gap:24px;padding:30px 24px}
+  .auth-shell:before{inset:0 35% 0 0}
+  .auth-brand{display:block;padding:5px 0;align-self:center}
+  .auth-brand .brand{font-size:23px}
+  .auth-brand .brand-symbol{height:29px;width:29px}
+  .auth-brand .auth-kicker{margin:36px 0 9px}
+  .auth-brand h1{font-size:clamp(30px,4vw,40px)}
+  .auth-brand>p{font-size:13px}
+  .auth-motto{bottom:-8vh;font-size:9px}
+  .auth-card{max-width:none;padding:24px}
+}
