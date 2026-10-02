@@ -47,7 +47,7 @@ export async function signOut() { return supabase.auth.signOut(); }
 export async function listWorkspaces() {
   const { data, error } = await supabase.from('workspaces').select('*').order('created_at', { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((w: any) => ({ id:w.id, name:w.name, type:w.production_type, description:w.description, initials:initials(w.name), accent:w.accent_color }));
+  return (data ?? []).map((w: any) => ({ id:w.id, name:w.name, type:w.production_type, description:w.description, initials:initials(w.name), accent:w.accent_color, ownerId:w.owner_id }));
 }
 
 export async function createWorkspace(userId: string, name: string, type: string, description: string) {
@@ -151,8 +151,8 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
   const productionCoverUrls=new Map(covers.map(item=>[item.id,item.url]));
   const workspaceRow:any = workspaceRes.data;
   return {
-    workspace:{id:workspaceRow.id,name:workspaceRow.name,type:workspaceRow.production_type,description:workspaceRow.description,initials:initials(workspaceRow.name),accent:workspaceRow.accent_color},
-    members:memberRows.map((m:any)=>{const p=profileMap.get(m.user_id);const name=p?.full_name||'Integrante';return {id:m.user_id,name,initials:initials(name),role:roleLabel[m.role]??m.role,status:'Disponible',color:'#5c5148',avatarUrl:p?.avatar_url??null};}),
+    workspace:{id:workspaceRow.id,name:workspaceRow.name,type:workspaceRow.production_type,description:workspaceRow.description,initials:initials(workspaceRow.name),accent:workspaceRow.accent_color,ownerId:workspaceRow.owner_id},
+    members:memberRows.map((m:any)=>{const p=profileMap.get(m.user_id);const name=p?.full_name||'Integrante';return {id:m.user_id,name,initials:initials(name),role:m.user_id===workspaceRow.owner_id?'Propietario':roleLabel[m.role]??m.role,status:'Disponible',color:'#5c5148',avatarUrl:p?.avatar_url??null};}),
     productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[],coverPath:p.cover_storage_path||'',coverUrl:productionCoverUrls.get(p.id)||'',youtubeLiveUrl:p.youtube_live_url||''};}),
     blocks:(blockRes.data ?? []).map((b:any)=>({id:b.id,productionId:b.production_id,order:b.position,type:b.type,title:b.title,duration:b.duration_min,responsible:nameOf(b.responsible_id),responsibleId:b.responsible_id,notes:b.notes,status:b.status})),
     ideas:(ideaRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,description:i.description,tags:i.tags??[],author:nameOf(i.author_id),authorId:i.author_id,reactions:reactionCount.get(i.id)||0,comments:(commentsByIdea.get(i.id)||[]).length,commentItems:commentsByIdea.get(i.id)||[],archived:i.archived})),
@@ -312,7 +312,18 @@ export async function linkResourceToProduction(productionId:string,libraryItemId
 export async function unlinkResourceFromProduction(productionId:string,libraryItemId:string) { const {error}=await supabase.from('production_resources').delete().eq('production_id',productionId).eq('library_item_id',libraryItemId); if(error) throw error; }
 export async function deleteLibraryItem(itemId:string) { const {error}=await supabase.from('library_items').update({archived:true}).eq('id',itemId); if(error) throw error; }
 export async function deleteTask(taskId:string) { const {error}=await supabase.from('tasks').delete().eq('id',taskId); if(error) throw error; }
-export async function updateMemberRole(workspaceId:string,userId:string,roleLabelValue:string) { const toDb:Record<string,string>={Administrador:'admin',Productor:'producer',Productora:'producer',Conductor:'host',Operador:'operator',Editora:'editor',Editor:'editor',Colaborador:'collaborator'}; const {error}=await supabase.from('workspace_members').update({role:toDb[roleLabelValue]??'collaborator'}).eq('workspace_id',workspaceId).eq('user_id',userId); if(error) throw error; }
+export async function updateMemberRole(workspaceId:string,userId:string,roleLabelValue:string) {
+  const toDb:Record<string,string>={Administrador:'admin',Productor:'producer',Productora:'producer',Conductor:'host',Operador:'operator',Editora:'editor',Editor:'editor',Colaborador:'collaborator'};
+  const dbRole=toDb[roleLabelValue];
+  if(!dbRole)throw new Error('Seleccioná un rol válido.');
+  const {data:workspace,error:lookupError}=await supabase.from('workspaces').select('owner_id').eq('id',workspaceId).single();
+  if(lookupError)throw lookupError;
+  if(workspace.owner_id===userId)throw new Error('El rol del propietario de la comunidad está protegido.');
+  const {data,error}=await supabase.from('workspace_members')
+    .update({role:dbRole}).eq('workspace_id',workspaceId).eq('user_id',userId).select('user_id').maybeSingle();
+  if(error)throw error;
+  if(!data)throw new Error('No tenés permiso para cambiar este rol.');
+}
 
 export async function insertIdeaComment(ideaId:string,userId:string,body:string) { const {error}=await supabase.from('idea_comments').insert({idea_id:ideaId,author_id:userId,body}); if(error) throw error; }
 export async function toggleMessageReaction(messageId:string,userId:string,emoji:string) { const {data,error}=await supabase.from('chat_message_reactions').select('emoji').eq('message_id',messageId).eq('user_id',userId).eq('emoji',emoji).maybeSingle(); if(error) throw error; if(data){const {error:del}=await supabase.from('chat_message_reactions').delete().eq('message_id',messageId).eq('user_id',userId).eq('emoji',emoji);if(del)throw del;}else{const {error:ins}=await supabase.from('chat_message_reactions').insert({message_id:messageId,user_id:userId,emoji});if(ins)throw ins;} }
