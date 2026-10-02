@@ -59,3 +59,12 @@
  .quick-chat-panel{height:calc(100dvh - 150px - env(safe-area-inset-bottom,0px) - env(safe-area-inset-top,0px))}
 }
 @media(prefers-reduced-motion:reduce){.quick-chat-fab{transition:none}.quick-chat-fab:hover{transform:none}}
+
+/* Workspace ownership always displays as a non-editable protected role. */
+.team-owner-card{border-color:#e7d7ca!important;background:linear-gradient(125deg,#fff 0%,#fff 75%,#fff8f1 100%)}
+.team-owner-card .avatar{background:#ad6748!important}
+.team-owner-role{display:flex;flex-wrap:wrap;align-items:center;gap:7px;min-height:42px;color:#9a5236;font-size:13px;font-weight:850}
+.team-owner-role svg{flex:none}
+.team-owner-lock{color:#8b988f;border:1px solid #e5ebe2;border-radius:7px;background:#f8f9f6;padding:5px 7px;font-size:10px;font-weight:700}
+.team-permission-notice{font-size:12px}
+@media(max-width:760px){.team-owner-role{font-size:12px}.team-owner-lock{font-size:10px}}

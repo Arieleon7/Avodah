@@ -1,13 +1,14 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import {QuickChatBubble} from './components/quick-chat';
 import type { User } from '@supabase/supabase-js';
 import {ResourceLibrary,ResourceQuickView,ResourceMedia,ResourceCreate,previewFields,type UploadResourceInfo} from './components/resource-library';
 import {ProductionArtwork,ProductionCoverEditor,YoutubeLiveAccess,ProductionCreate,type ProductionCreation} from './components/production-media';
 import {parseYoutubeLive,validYoutubeLive} from '@/lib/production-media';
 import {BlockEditorDialog,CalendarEditorDialog,WorkspaceEditorDialog,FlexibleTextArea,type BlockDraft,type CalendarDraft,type WorkspaceDraft} from './components/editor-dialogs';
 import {safeResourceUrl,guessResourcePreview,type ResourcePreview} from '@/lib/resource-preview';
-import { LayoutDashboard, Radio, Lightbulb, BookOpen, CalendarDays, CheckSquare, MessageCircle, Users, Settings as SettingsIcon, Video, Search, Plus, ArrowUpRight, Mic2, Clock3, Menu, X, ChevronRight, ChevronDown, ListChecks, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Radio, Lightbulb, BookOpen, CalendarDays, CheckSquare, MessageCircle, Users, Settings as SettingsIcon, Video, Search, Plus, ArrowUpRight, Mic2, Clock3, Menu, X, ChevronRight, ChevronDown, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
 import {
   archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, uploadLibraryFile, updateLibraryPreview, updateLibraryItem as cloudUpdateLibraryItem, requestResourcePreview, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, updateBlockPosition, updateMemberRole, updateProduction, uploadProductionCover, removeProductionCover, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment,
 } from '@/lib/cloud';
@@ -26,7 +27,7 @@ type Reaction = {userId:string;emoji:string};
 type Message = {id:string;channel:string;author:string;authorId?:string;text:string;time:string;replyTo?:string|null;pinned?:boolean;reactions?:Reaction[];attachments?:Attachment[]};
 type Channel = {id:string;name:string;dbId?:string;productionId?:string;kind?:string};
 type Member = {id:string;name:string;initials:string;role:string;status:string;color:string};
-type Workspace = {id:string;name:string;type:string;description:string;initials:string};
+type Workspace = {id:string;name:string;type:string;description:string;initials:string;ownerId?:string};
 type CalendarEvent = {id:string;title:string;kind:string;startsAt:string;endsAt?:string|null;notes:string;productionId?:string};
 type ModalKind = 'production'|'idea'|'library'|'task'|null;
 
@@ -309,7 +310,32 @@ export default function Home(){
   const handleUnlinkResource=async(pid:string,itemId:string)=>{if(mode==='cloud')await cloudAction(async()=>{await unlinkResourceFromProduction(pid,itemId)});else setProductions(all=>all.map(x=>x.id===pid?{...x,resourceIds:(x.resourceIds??[]).filter(id=>id!==itemId)}:x))};
   const handleArchiveLibrary=async(item:LibraryItem)=>{if(!window.confirm(`¿Archivar \"${item.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteLibraryItem(item.id)});else setLibrary(all=>all.filter(x=>x.id!==item.id))};
   const handleDeleteTask=async(t:Task)=>{if(!window.confirm(`¿Eliminar la tarea \"${t.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteTask(t.id)});else setTasks(all=>all.filter(x=>x.id!==t.id))};
-  const handleMemberRole=async(memberId:string,role:string)=>{if(mode==='cloud')await cloudAction(async()=>{await updateMemberRole(workspace.id,memberId,role)});else{members=members.map(m=>m.id===memberId?{...m,role}:m);setWorkspace(w=>({...w}))}};
+  const handleMemberRole=async(memberId:string,role:string)=>{
+    if(memberId===workspace.ownerId){
+      setCloudError('El propietario de la comunidad conserva sus permisos y no puede cambiar de rol.');
+      return;
+    }
+    if(mode==='cloud'){
+      try{setCloudError('');await updateMemberRole(workspace.id,memberId,role);await loadCloud(workspace.id)}
+      catch(err){setCloudError(err instanceof Error?err.message:'No se pudo modificar el rol.')}
+    }else{
+      members=members.map(m=>m.id===memberId?{...m,role}:m);
+      setWorkspace(w=>({...w}));
+    }
+  };
+  const handleQuickSend=async(channelId:string,message:string,file?:File)=>{
+    if(mode==='cloud'&&user){
+      const dbId=channels.find(c=>c.id===channelId)?.dbId??channelId;
+      try{
+        setCloudError('');
+        const messageId=await insertMessage(dbId,user.id,message||file?.name||'Archivo adjunto');
+        if(file)await uploadMessageAttachment(workspace.id,messageId,file);
+        await loadCloud(workspace.id);
+      }catch(err){setCloudError(err instanceof Error?err.message:'No se pudo enviar el mensaje.');throw err}
+    }else{
+      setMessages(all=>[...all,{id:id('msg'),channel:channelId,author:currentUserName,authorId:'demo',text:message||file?.name||'Archivo adjunto',time:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),attachments:file?[{id:id('att'),name:file.name,size:file.size,mimeType:file.type,url:URL.createObjectURL(file)}]:[]}]);
+    }
+  };
   const handleMessageReaction=async(message:Message,emoji:string)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await toggleMessageReaction(message.id,user.id,emoji)});else setMessages(all=>all.map(m=>m.id===message.id?{...m,reactions:[...(m.reactions??[]),{userId:'demo',emoji}]}:m))};
   const handlePinMessage=async(message:Message)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await togglePinMessage(message.id,!message.pinned,user.id)});else setMessages(all=>all.map(m=>m.id===message.id?{...m,pinned:!m.pinned}:m))};
   const handleCreateEvent=()=>setCalendarCreateOpen(true);
@@ -374,7 +400,7 @@ export default function Home(){
        section==='calendario'?<Calendar productions={productions} tasks={tasks} events={calendarEvents} onCreate={handleCreateEvent} onDelete={handleDeleteEvent}/>:
        section==='tareas'?<Tasks tasks={tasks} setModal={setModal} onStatus={handleTaskStatus} onDelete={handleDeleteTask}/>:
        section==='chat'?<Chat channels={channels} channel={channel} setChannel={setChannel} messages={messages} onSend={handleSend} onReact={handleMessageReaction} onPin={handlePinMessage} currentUserId={user?.id} cloud={isCloud}/>:
-       section==='equipo'?<Team cloud={isCloud} canManage={currentMember?.role==='Administrador'} currentUserId={user?.id} onInvite={handleInvite} onRole={handleMemberRole}/>:
+       section==='equipo'?<Team cloud={isCloud} canManage={currentMember?.role==='Administrador'||currentMember?.role==='Propietario'||(isCloud&&workspace.ownerId===user?.id)} ownerId={workspace.ownerId} currentUserId={user?.id} onInvite={handleInvite} onRole={handleMemberRole}/>:
        section==='configuracion'?<Settings workspace={workspace} setWorkspace={setWorkspace} onSave={handleSaveWorkspace} onCreateWorkspace={handleCreateWorkspace} cloud={isCloud}/>:
        <Meeting workspace={workspace}/>
       }
@@ -383,6 +409,7 @@ export default function Home(){
     <nav className="mobile-nav" aria-label="Navegación móvil">{primaryMobileNav.map(([key,Icon,label])=><button key={key} type="button" aria-current={section===key?'page':undefined} className={section===key?'active':''} onClick={()=>go(key)}><Icon size={21} strokeWidth={section===key?2.3:1.9}/><span>{label}</span></button>)}<button type="button" className={mobileMore||(!primaryMobileNav.some(([key])=>key===section))?'active':''} onClick={()=>setMobileMore(x=>!x)} aria-expanded={mobileMore} aria-controls="mobile-sections" aria-label="Abrir más secciones">{mobileMore?<X size={21}/>:<Menu size={21}/>}<span>Más</span></button></nav>
     {mobileMore&&<><button className="mobile-more-scrim" type="button" aria-label="Cerrar menú" onClick={()=>setMobileMore(false)}/><div id="mobile-sections" className="mobile-more" role="dialog" aria-modal="true" aria-label="Más secciones de AVODAH"><div className="mobile-more-head"><div><small>TU ESPACIO</small><strong>{workspace.name}</strong></div><button type="button" onClick={()=>setMobileMore(false)} aria-label="Cerrar menú"><X size={20}/></button></div><div className="mobile-more-links">{secondaryMobileNav.map(([key,Icon,label])=><button key={key} type="button" aria-current={section===key?'page':undefined} className={section===key?'active':''} onClick={()=>go(key)}><Icon size={20}/><span>{label}</span><ChevronRight size={17}/></button>)}<button type="button" className={section==='reunion'?'active':''} onClick={()=>go('reunion')}><Video size={20}/><span>Reuniones</span><ChevronRight size={17}/></button></div></div></>}
 
+    {section!=='chat'&&!programMode&&!mobileMore&&<QuickChatBubble workspaceId={workspace.id} workspaceName={workspace.name} channels={channels} messages={messages} currentUserId={user?.id} onSend={handleQuickSend} onFullChat={activeChannel=>{setChannel(activeChannel);go('chat')}}/>}
     {calendarCreateOpen&&<CalendarEditorDialog onClose={()=>setCalendarCreateOpen(false)} onSave={handleSaveCalendar}/>}
     {workspaceCreateOpen&&<WorkspaceEditorDialog onClose={()=>setWorkspaceCreateOpen(false)} onSave={handleCreateWorkspaceFromEditor}/>}
     {modal&&<Modal kind={modal} onCreateProduction={handleCreateProduction} onUploadCover={handleProductionCover} initialTab={resourceModalTab} onUpload={handleUploadFile} close={()=>{setModal(null);setResourceModalTab('link')}} productions={productions} currentUserName={currentUserName} demo={mode==='demo'} onProduction={handleProduction} onIdea={handleIdea} onLibrary={handleLibrary} onTask={handleTask}/>} 
@@ -545,8 +572,21 @@ function Calendar({productions,tasks,events,onCreate,onDelete}:{productions:Prod
  </>;
 }
 
-function Team({cloud,canManage,currentUserId,onInvite,onRole}:{cloud:boolean;canManage:boolean;currentUserId?:string;onInvite:()=>void|Promise<void>;onRole:(memberId:string,role:string)=>void|Promise<void>}){const roles=['Administrador','Productor','Conductor','Operador','Editor','Colaborador'];return <><Header title="Equipo" subtitle="Personas, roles y disponibilidad del espacio de trabajo."><button className="btn primary" onClick={()=>{void onInvite()}} disabled={!cloud||!canManage}>+ Invitar integrante</button></Header><div className="team">{members.map(m=><div className="card member" key={m.id}><span className="avatar" style={{background:m.color}}>{m.initials}</span><div className="grow"><h3>{m.name}{m.id===currentUserId&&<small className="muted"> · Vos</small>}</h3>{cloud?<select className="select role-select" value={m.role.replace('Productora','Productor').replace('Editora','Editor')} disabled={!canManage} onChange={e=>{void onRole(m.id,e.target.value)}}>{roles.map(r=><option key={r}>{r}</option>)}</select>:<p>{m.role}</p>}<span className={`pill ${m.status==='Disponible'?'green':''}`} style={{marginTop:8}}>{m.status}</span></div></div>)}</div><div className="notice" style={{marginTop:18}}>{cloud?(canManage?'Las invitaciones generan un enlace válido por 7 días. Como administrador podés ajustar roles.':'Podés ver el equipo. Sólo un administrador puede invitar integrantes o cambiar roles.'):'En modo demo no se envían invitaciones. Iniciá sesión para crear un equipo real.'}</div></>}
-
+function Team({cloud,canManage,ownerId,currentUserId,onInvite,onRole}:{cloud:boolean;canManage:boolean;ownerId?:string;currentUserId?:string;onInvite:()=>void|Promise<void>;onRole:(memberId:string,role:string)=>void|Promise<void>}){
+ const roles=['Administrador','Productor','Conductor','Operador','Editor','Colaborador'];
+ return <><Header title="Equipo" subtitle="Personas, roles y disponibilidad del espacio de trabajo."><button className="btn primary" onClick={()=>{void onInvite()}} disabled={!cloud||!canManage}>+ Invitar integrante</button></Header>
+ <div className="team">{members.map(m=>{
+   const owner=!!ownerId&&m.id===ownerId;
+   return <div className={owner?'card member team-owner-card':'card member'} key={m.id}>
+      <span className="avatar" style={{background:m.color}}>{m.initials}</span>
+      <div className="grow"><h3>{m.name}{m.id===currentUserId&&<small className="muted"> · Vos</small>}</h3>
+        {owner?<div className="team-owner-role"><ShieldCheck size={17}/><span>Propietario</span><span className="team-owner-lock">Rol protegido</span></div>:cloud?<select className="select role-select" aria-label={'Rol de '+m.name} value={m.role.replace('Productora','Productor').replace('Editora','Editor')} disabled={!canManage} onChange={e=>{void onRole(m.id,e.target.value)}}>{roles.map(r=><option key={r}>{r}</option>)}</select>:<p>{m.role}</p>}
+        <span className={`pill ${m.status==='Disponible'?'green':''}`} style={{marginTop:8}}>{m.status}</span>
+      </div>
+    </div>
+  })}</div>
+ <div className="notice team-permission-notice" style={{marginTop:18}}>{cloud?(canManage?'Podés invitar integrantes y administrar sus roles. El propietario siempre conserva el control de la comunidad.':'Podés consultar el equipo. Los administradores y el propietario gestionan invitaciones y roles.'):'En modo demo no se envían invitaciones. Iniciá sesión para crear un equipo real.'}</div></>;
+}
 function Settings({workspace,setWorkspace,onSave,onCreateWorkspace,cloud}:{workspace:Workspace;setWorkspace:React.Dispatch<React.SetStateAction<Workspace>>;onSave:(w:Workspace)=>void|Promise<void>;onCreateWorkspace:()=>void|Promise<void>;cloud:boolean}){return <><Header title="Configuración" subtitle="Identidad y preferencias de este espacio de trabajo."/><div className="card" style={{maxWidth:720}}><div className="form-row"><div className="field"><label>Nombre</label><input className="input" value={workspace.name} onChange={e=>setWorkspace(w=>({...w,name:e.target.value,initials:e.target.value.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}))}/></div><div className="field"><label>Tipo</label><select className="select" value={workspace.type} onChange={e=>setWorkspace(w=>({...w,type:e.target.value}))}><option>Multiformato</option><option>Radio</option><option>Streaming</option><option>Podcast</option><option>Videopodcast</option><option>YouTube / Contenido</option></select></div></div><div className="field" style={{marginTop:12}}><label>Descripción</label><textarea className="textarea" value={workspace.description} onChange={e=>setWorkspace(w=>({...w,description:e.target.value}))}/></div><div className="actions" style={{marginTop:14}}><button className="btn primary" onClick={()=>{void onSave(workspace)}}>Guardar cambios</button><span className="muted" style={{fontSize:12}}>{cloud?'Se guarda en AVODAH Cloud':'Se guarda en este dispositivo'}</span></div>{cloud&&<div className="settings-divider"><div><strong>Otro equipo o proyecto</strong><p className="muted">Podés crear más espacios y alternar entre ellos desde el menú lateral.</p></div><button className="btn" onClick={()=>{void onCreateWorkspace()}}>+ Crear otro espacio</button></div>}</div></>}
 
 

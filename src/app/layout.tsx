@@ -4,6 +4,7 @@ import './resource-library.css';
 import './editor-dialogs.css';
 import './mobile.css';
 import './production-media.css';
+import './quick-chat.css';
 
 export const metadata: Metadata = {
   title: 'AVODAH — Production Workspace',
