@@ -1,0 +1,13 @@
+
+/* Read-only script block preview */
+.script-open{display:block;width:100%;padding:0;border:0;background:transparent;text-align:left;color:inherit;cursor:pointer}
+.script-open:hover h4{color:#A64B2B}.script-actions .script-open-action{color:#6A7F71}
+.block-preview-backdrop{position:fixed;inset:0;z-index:110;display:grid;place-items:center;padding:20px;background:rgba(18,22,22,.52);backdrop-filter:blur(5px)}
+.block-preview-dialog{width:min(760px,100%);max-height:90dvh;overflow:auto;border:1px solid #DDD4CB;border-radius:17px;background:#FFFCF8;box-shadow:0 30px 90px rgba(20,24,23,.28)}
+.block-preview-dialog>header{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:23px 24px 18px;border-bottom:1px solid #ECE5DE}.block-preview-dialog h2{margin:7px 0 0;font-family:Manrope,Inter,sans-serif;font-size:28px;letter-spacing:-.05em;line-height:1.12}
+.block-preview-type{display:inline-flex;margin-left:9px;padding:4px 7px;border-radius:6px;background:#F1DED3;color:#914328;font-size:8.5px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.block-preview-close{display:grid;place-items:center;flex:none;width:39px;height:39px;border:0;border-radius:10px;background:#F1EEEA;color:#657069;cursor:pointer}
+.block-preview-meta{display:flex;flex-wrap:wrap;gap:8px;padding:14px 24px;border-bottom:1px solid #ECE5DE}.block-preview-meta span{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border:1px solid #E8E1DA;border-radius:8px;background:#FAF7F3;color:#6E7770;font-size:10.5px}
+.block-preview-content{padding:24px}.block-preview-content>div{margin-top:10px;padding:18px;border:1px solid #E7E0D8;border-radius:11px;background:#FFF}.block-preview-content p{margin:0;white-space:pre-wrap;color:#3E4540;font-size:13px;line-height:1.75}
+.block-preview-dialog>footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 24px 18px;border-top:1px solid #ECE5DE;background:#FAF7F3}
+@media(max-width:760px){.block-preview-backdrop{align-items:end;padding:0}.block-preview-dialog{width:100%;max-height:91dvh;border-radius:18px 18px 0 0}.block-preview-dialog>header,.block-preview-content{padding:18px 16px}.block-preview-dialog h2{font-size:24px}.block-preview-meta{padding:12px 16px}.block-preview-dialog>footer{padding:12px 16px calc(15px + env(safe-area-inset-bottom,0px))}.block-preview-dialog>footer .btn{flex:1}}
