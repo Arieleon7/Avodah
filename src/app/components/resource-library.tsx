@@ -48,7 +48,7 @@ export function ResourceMedia({item}:{item:ResourceItem}){
 }
 
 export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,onLink,onUnlink}:{item:ResourceItem;onClose:()=>void;onPreview:(i:ResourceItem)=>void|Promise<void>;onUpdate:(i:ResourceItem)=>void|Promise<void>;productions?:ResourceProduction[];onLink?:(pid:string,id:string)=>void|Promise<void>;onUnlink?:()=>void}){
- const [editing,setEditing]=useState(false),[draft,setDraft]=useState(item),[busy,setBusy]=useState(false),[error,setError]=useState(''),[copied,setCopied]=useState(false),[target,setTarget]=useState('');
+ const [editing,setEditing]=useState(false),[draft,setDraft]=useState(item),[busy,setBusy]=useState(false),[error,setError]=useState(''),[savedMessage,setSavedMessage]=useState(''),[copied,setCopied]=useState(false),[target,setTarget]=useState('');
  useEffect(()=>setDraft(item),[item]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key)},[onClose]);
  const preview=resourceInfo(item),url=safeResourceUrl(item.url),embed=resourceEmbed(url);
@@ -60,7 +60,7 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
   return()=>{alive=false};
  },[item.storagePath,item.fileUrl]);
  const refresh=async()=>{setBusy(true);setError('');try{await onPreview(item)}catch(e){setError(e instanceof Error?e.message:'No se pudo actualizar.')}finally{setBusy(false)}};
- const save=async()=>{if(!draft.title.trim()){setError('Escribí un título.');return;}setBusy(true);setError('');try{await onUpdate({...draft,title:draft.title.trim()});setEditing(false)}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.')}finally{setBusy(false)}};
+ const save=async()=>{if(!draft.title.trim()){setError('Escribí un título.');return;}setBusy(true);setError('');setSavedMessage('');try{await onUpdate({...draft,title:draft.title.trim()});setEditing(false);setSavedMessage('Nota y ficha guardadas para toda la organización.')}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.')}finally{setBusy(false)}};
  const copy=async()=>{try{await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setError('No se pudo copiar el enlace.')}};
  return <div className="resource-preview-backdrop" onMouseDown={e=>{if(e.currentTarget===e.target)onClose()}}>
  <section className="resource-preview-dialog" role="dialog" aria-modal="true" aria-label={'Recurso: '+item.title}>
@@ -82,7 +82,7 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
       <label>Etiquetas<input className="input" value={draft.tags.join(', ')} onChange={e=>setDraft({...draft,tags:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/></label>
       <div className="resource-buttons"><button className="btn" onClick={()=>setEditing(false)}>Cancelar</button><button className="btn primary" disabled={busy} onClick={()=>{void save()}}>Guardar cambios</button></div>
      </div>:<><h2>{item.title}</h2>{isFile&&<p className="resource-page-description">{item.fileName}{item.fileMime==='application/pdf'?' · PDF':item.fileMime?.includes('word')?' · Word':''} · Sólo los integrantes de este equipo pueden acceder al archivo.</p>}{preview.description&&!isFile&&<p className="resource-page-description">{preview.description}</p>}{item.note&&<div className="resource-team-note"><strong>NOTA DEL EQUIPO</strong><p>{item.note}</p></div>}{item.tags.length>0&&<div className="tags">{item.tags.map(t=><span className="tag" key={t}>#{t}</span>)}</div>}</>}
-    {error&&<p className="resource-error" role="alert">{error}</p>}
+    {error&&<p className="resource-error" role="alert">{error}</p>}{savedMessage&&<p className="resource-success" role="status">{savedMessage}</p>}
     <div className="resource-buttons"><button className="btn" disabled={busy} onClick={()=>setEditing(true)}>Editar ficha</button>{!isFile&&<button className="btn" disabled={busy||!url} onClick={()=>{void refresh()}}><RefreshCw size={15} className={busy?'spinning':''}/> Actualizar preview</button>}</div>
     <div className="resource-buttons bottom">{isFile?freshFileUrl&&<a className="btn primary" href={freshFileUrl} target="_blank" rel="noopener noreferrer"><Download size={16}/> Abrir / descargar archivo</a>:<>{url&&<a className="btn primary" href={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={16}/> Abrir original</a>}<button className="btn" disabled={!url} onClick={()=>{void copy()}}><Copy size={15}/>{copied?'Copiado':'Copiar enlace'}</button></>}</div>
     {onLink&&productions&&<div className="resource-preview-linker"><select className="select" value={target} onChange={e=>setTarget(e.target.value)} aria-label="Vincular recurso a producción"><option value="">Vincular con una producción…</option>{productions.filter(p=>!(p.resourceIds??[]).includes(item.id)).map(p=><option key={p.id} value={p.id}>{p.title}</option>)}</select><button className="btn primary" disabled={!target} onClick={()=>{if(target){void onLink(target,item.id);setTarget('')}}}>Vincular</button></div>}

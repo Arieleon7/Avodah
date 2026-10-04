@@ -236,8 +236,10 @@ export async function uploadLibraryFile(workspaceId:string,userId:string,file:Fi
  return data.id as string;
 }
 export async function updateLibraryItem(itemId:string,item:{title:string;note:string;category:string;source:string;tags:string[]}) {
-  const {error}=await supabase.from('library_items').update(item).eq('id',itemId);
+  const {data,error}=await supabase.from('library_items').update(item).eq('id',itemId).select('id,note').maybeSingle();
   if(error)throw error;
+  if(!data)throw new Error('No se pudo guardar la nota del recurso. Verificá tus permisos en esta comunidad.');
+  return data;
 }
 export async function requestResourcePreview(url:string,demo:boolean=false):Promise<import('./resource-preview').ResourcePreview> {
   const {guessResourcePreview}=await import('./resource-preview');
@@ -309,7 +311,12 @@ export async function deleteProduction(productionId:string) {
     await supabase.storage.from('avodah-files').remove([existing.cover_storage_path]).catch(()=>{});
   }
 }
-export async function updateProductionNotes(productionId:string,notes:string) { const {error}=await supabase.from('productions').update({notes}).eq('id',productionId); if(error) throw error; }
+export async function updateProductionNotes(productionId:string,notes:string) {
+  const {data,error}=await supabase.from('productions').update({notes}).eq('id',productionId).select('id,notes').maybeSingle();
+  if(error)throw error;
+  if(!data)throw new Error('No se pudo guardar la nota. Verificá que sigas siendo integrante de esta comunidad.');
+  return data.notes as string;
+}
 export async function updateBlock(blockId:string,b:any,members:any[]) { const responsible=members.find((m:any)=>m.name===b.responsible); const {error}=await supabase.from('rundown_blocks').update({type:b.type,title:b.title,duration_min:b.duration,responsible_id:responsible?.id??b.responsibleId??null,notes:b.notes,status:b.status}).eq('id',blockId); if(error) throw error; }
 export async function deleteBlock(blockId:string) { const {error}=await supabase.from('rundown_blocks').delete().eq('id',blockId); if(error) throw error; }
 export async function linkResourceToProduction(productionId:string,libraryItemId:string,userId:string) { const {error}=await supabase.from('production_resources').upsert({production_id:productionId,library_item_id:libraryItemId,added_by:userId}); if(error) throw error; }
