@@ -262,6 +262,10 @@ export async function updateTaskStatus(taskId:string,status:string) { const {err
 export async function insertMessage(channelId:string,userId:string,text:string) { const {data,error}=await supabase.from('chat_messages').insert({channel_id:channelId,author_id:userId,body:text}).select('id').single(); if(error) throw error; return data.id as string; }
 export async function insertBlock(productionId:string,b:any,members:any[]) { const responsible=members.find((m:any)=>m.name===b.responsible); const {data,error}=await supabase.from('rundown_blocks').insert({production_id:productionId,position:b.order,type:b.type,title:b.title,duration_min:b.duration,responsible_id:responsible?.id??null,notes:b.notes,status:b.status}).select('id').single(); if(error) throw error; return data.id as string; }
 export async function updateBlockPosition(blockId:string,position:number) { const {error}=await supabase.from('rundown_blocks').update({position}).eq('id',blockId); if(error) throw error; }
+export async function reorderBlocks(productionId:string,orderedBlockIds:string[]) {
+  const {error}=await supabase.rpc('reorder_rundown_blocks',{target_production_id:productionId,ordered_block_ids:orderedBlockIds});
+  if(error)throw error;
+}
 export async function updateWorkspace(workspaceId:string,w:any) { const {error}=await supabase.from('workspaces').update({name:w.name,description:w.description,production_type:w.type}).eq('id',workspaceId); if(error) throw error; }
 
 
