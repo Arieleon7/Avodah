@@ -1,11 +1,11 @@
 'use client';
 import {useEffect,useRef,useState,type PointerEvent as ReactPointerEvent,type KeyboardEvent as ReactKeyboardEvent} from 'react';
-import {Copy,GripVertical,Pencil,Trash2} from 'lucide-react';
+import {Copy,Eye,GripVertical,Pencil,Trash2} from 'lucide-react';
 
 export type ScriptBlockItem={
  id:string;productionId:string;order:number;type:string;title:string;duration:number;responsible:string;notes:string;status:string;
 };
-export function ScriptBoard({blocks,onReorder,onEdit,onDuplicate,onDelete}:{blocks:ScriptBlockItem[];onReorder:(orderedIds:string[])=>Promise<void>|void;onEdit:(block:ScriptBlockItem)=>void;onDuplicate:(block:ScriptBlockItem)=>Promise<void>|void;onDelete:(block:ScriptBlockItem)=>Promise<void>|void}){
+export function ScriptBoard({blocks,onReorder,onOpen,onEdit,onDuplicate,onDelete}:{blocks:ScriptBlockItem[];onReorder:(orderedIds:string[])=>Promise<void>|void;onOpen:(block:ScriptBlockItem)=>void;onEdit:(block:ScriptBlockItem)=>void;onDuplicate:(block:ScriptBlockItem)=>Promise<void>|void;onDelete:(block:ScriptBlockItem)=>Promise<void>|void}){
  const sorted=[...blocks].sort((a,b)=>a.order-b.order);
  const [items,setItems]=useState(sorted);
  const [dragId,setDragId]=useState<string|null>(null);
@@ -145,8 +145,9 @@ export function ScriptBoard({blocks,onReorder,onEdit,onDuplicate,onDelete}:{bloc
        disabled={saving}
      ><GripVertical size={21}/><span>ARRASTRAR</span></button>
      <div className="script-index" aria-hidden="true">{String(index+1).padStart(2,'0')}</div>
-     <div className="script-main"><div className="script-meta"><span className="script-type">{block.type}</span><span>{block.duration} min</span>{block.responsible&&<span>{block.responsible}</span>}</div><h4>{block.title}</h4><p>{block.notes||'Sin notas para este bloque.'}</p></div>
+     <button type="button" className="script-main script-open" onClick={()=>onOpen(block)} aria-label={'Abrir '+block.title}><div className="script-meta"><span className="script-type">{block.type}</span><span>{block.duration} min</span>{block.responsible&&<span>{block.responsible}</span>}</div><h4>{block.title}</h4><p>{block.notes||'Sin notas para este bloque.'}</p></button>
      <div className="script-actions">
+       <button type="button" className="icon-btn script-open-action" onClick={()=>onOpen(block)} aria-label={'Abrir '+block.title} title="Abrir"><Eye size={15}/></button>
        <button type="button" className="icon-btn" onClick={()=>onEdit(block)} aria-label={'Editar '+block.title} title="Editar"><Pencil size={15}/></button>
        <button type="button" className="icon-btn" onClick={()=>{void onDuplicate(block)}} aria-label={'Duplicar '+block.title} title="Duplicar"><Copy size={15}/></button>
        <button type="button" className="icon-btn danger-text" onClick={()=>{void onDelete(block)}} aria-label={'Eliminar '+block.title} title="Eliminar"><Trash2 size={15}/></button>
