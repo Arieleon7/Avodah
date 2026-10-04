@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import {QuickChatBubble} from './components/quick-chat';
 import type { User } from '@supabase/supabase-js';
 import {ResourceLibrary,ResourceQuickView,ResourceMedia,ResourceCreate,previewFields,type UploadResourceInfo} from './components/resource-library';
