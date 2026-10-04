@@ -7,6 +7,7 @@ import './production-media.css';
 import './quick-chat.css';
 import './brand-system.css';
 import './product-polish.css';
+import './art-direction.css';
 
 export const metadata: Metadata = {
   title: 'AVODAH — Donde las ideas se convierten en programas',
