@@ -17,8 +17,8 @@ export function ProductionNotes({
  notes:ProductionNoteItem[];
  productionId:string;
  onCreate:(productionId:string,note:{title:string;content:string})=>Promise<string>;
- onUpdate:(noteId:string,note:{title:string;content:string})=>Promise<void>;
- onDelete:(noteId:string)=>Promise<void>;
+ onUpdate:(noteId:string,note:{title:string;content:string})=>Promise<void>|void;
+ onDelete:(noteId:string)=>Promise<void>|void;
 }){
  const ordered=useMemo(()=>[...notes].sort((a,b)=>new Date(b.updatedAt).getTime()-new Date(a.updatedAt).getTime()),[notes]);
  const [selectedId,setSelectedId]=useState<string>(ordered[0]?.id||'');
