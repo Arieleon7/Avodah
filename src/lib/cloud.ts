@@ -93,14 +93,16 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
 
   const productionRows = productionRes.data ?? [];
   const productionIds = productionRows.map((p:any)=>p.id);
-  const [blockRes, productionMemberRes, productionResourceRes] = productionIds.length ? await Promise.all([
+  const [blockRes, productionMemberRes, productionResourceRes, productionNoteRes] = productionIds.length ? await Promise.all([
     supabase.from('rundown_blocks').select('*').in('production_id',productionIds).order('position',{ascending:true}),
     supabase.from('production_members').select('*').in('production_id',productionIds),
     supabase.from('production_resources').select('production_id,library_item_id').in('production_id',productionIds),
-  ]) : [{data:[],error:null},{data:[],error:null},{data:[],error:null}] as any;
+    supabase.from('production_notes').select('*').in('production_id',productionIds).order('updated_at',{ascending:false}),
+  ]) : [{data:[],error:null},{data:[],error:null},{data:[],error:null},{data:[],error:null}] as any;
   if (blockRes.error) throw blockRes.error;
   if (productionMemberRes.error) throw productionMemberRes.error;
   if (productionResourceRes.error) throw productionResourceRes.error;
+  if (productionNoteRes.error) throw productionNoteRes.error;
 
   const channels = channelRes.data ?? [];
   const channelIds = channels.map((c:any)=>c.id);
@@ -155,6 +157,7 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
     members:memberRows.map((m:any)=>{const p=profileMap.get(m.user_id);const name=p?.full_name||'Integrante';return {id:m.user_id,name,initials:initials(name),role:m.user_id===workspaceRow.owner_id?'Propietario':roleLabel[m.role]??m.role,status:'Disponible',color:'#5c5148',avatarUrl:p?.avatar_url??null};}),
     productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[],coverPath:p.cover_storage_path||'',coverUrl:productionCoverUrls.get(p.id)||'',youtubeLiveUrl:p.youtube_live_url||''};}),
     blocks:(blockRes.data ?? []).map((b:any)=>({id:b.id,productionId:b.production_id,order:b.position,type:b.type,title:b.title,duration:b.duration_min,responsible:nameOf(b.responsible_id),responsibleId:b.responsible_id,notes:b.notes,status:b.status})),
+    productionNotes:(productionNoteRes.data ?? []).map((n:any)=>({id:n.id,productionId:n.production_id,title:n.title,content:n.content,authorId:n.created_by??undefined,author:nameOf(n.created_by)||'Integrante',createdAt:n.created_at,updatedAt:n.updated_at})),
     ideas:(ideaRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,description:i.description,tags:i.tags??[],author:nameOf(i.author_id),authorId:i.author_id,reactions:reactionCount.get(i.id)||0,comments:(commentsByIdea.get(i.id)||[]).length,commentItems:commentsByIdea.get(i.id)||[],archived:i.archived})),
     library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,category:i.category,url:i.url??'',note:i.note,source:i.source,tags:i.tags??[],previewTitle:i.preview_title||'',previewDescription:i.preview_description||'',previewImage:i.preview_image||'',previewSite:i.preview_site||'',previewKind:i.preview_kind||'',previewFetchedAt:i.preview_fetched_at||'',storagePath:i.storage_path||'',fileName:i.file_name||'',fileMime:i.mime_type||'',fileSize:Number(i.file_size||0),fileUrl:resourceFileUrls.get(i.id)||''})),
     tasks:(taskRes.data ?? []).map((t:any)=>({id:t.id,title:t.title,status:taskStatusFromDb[t.status]??'Pendiente',assignee:nameOf(t.assignee_id)||'Sin asignar',assigneeId:t.assignee_id,due:t.due_at?new Date(t.due_at).toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'Sin fecha',dueAt:t.due_at,priority:t.priority,productionId:t.production_id??undefined})),
@@ -317,6 +320,27 @@ export async function updateProductionNotes(productionId:string,notes:string) {
   if(!data)throw new Error('No se pudo guardar la nota. Verificá que sigas siendo integrante de esta comunidad.');
   return data.notes as string;
 }
+
+export async function insertProductionNote(productionId:string,userId:string,note:{title:string;content:string}) {
+  const {data,error}=await supabase.from('production_notes').insert({
+    production_id:productionId,created_by:userId,title:note.title.trim()||'Nota',content:note.content
+  }).select('id,production_id,title,content,created_by,created_at,updated_at').single();
+  if(error)throw error;
+  return data;
+}
+export async function updateProductionNote(noteId:string,note:{title:string;content:string}) {
+  const {data,error}=await supabase.from('production_notes').update({
+    title:note.title.trim()||'Nota',content:note.content
+  }).eq('id',noteId).select('id,production_id,title,content,created_by,created_at,updated_at').maybeSingle();
+  if(error)throw error;
+  if(!data)throw new Error('No se pudo guardar esta nota.');
+  return data;
+}
+export async function deleteProductionNote(noteId:string) {
+  const {data,error}=await supabase.from('production_notes').delete().eq('id',noteId).select('id').maybeSingle();
+  if(error)throw error;
+  if(!data)throw new Error('No se pudo eliminar esta nota.');
+}
 export async function updateBlock(blockId:string,b:any,members:any[]) { const responsible=members.find((m:any)=>m.name===b.responsible); const {error}=await supabase.from('rundown_blocks').update({type:b.type,title:b.title,duration_min:b.duration,responsible_id:responsible?.id??b.responsibleId??null,notes:b.notes,status:b.status}).eq('id',blockId); if(error) throw error; }
 export async function deleteBlock(blockId:string) { const {error}=await supabase.from('rundown_blocks').delete().eq('id',blockId); if(error) throw error; }
 export async function linkResourceToProduction(productionId:string,libraryItemId:string,userId:string) { const {error}=await supabase.from('production_resources').upsert({production_id:productionId,library_item_id:libraryItemId,added_by:userId}); if(error) throw error; }
@@ -348,6 +372,7 @@ export function subscribeWorkspace(workspaceId:string,onChange:()=>void) {
     .on('postgres_changes',{event:'*',schema:'public',table:'ideas',filter:`workspace_id=eq.${workspaceId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'tasks',filter:`workspace_id=eq.${workspaceId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'productions',filter:`workspace_id=eq.${workspaceId}`},onChange)
+    .on('postgres_changes',{event:'*',schema:'public',table:'production_notes'},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'library_items',filter:`workspace_id=eq.${workspaceId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'chat_channels',filter:`workspace_id=eq.${workspaceId}`},onChange)
     .on('postgres_changes',{event:'*',schema:'public',table:'workspace_members',filter:`workspace_id=eq.${workspaceId}`},onChange)
