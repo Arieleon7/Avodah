@@ -266,7 +266,7 @@ export async function insertBlock(productionId:string,b:any,members:any[]) { con
 export async function updateBlockPosition(blockId:string,position:number) { const {error}=await supabase.from('rundown_blocks').update({position}).eq('id',blockId); if(error) throw error; }
 export async function reorderBlocks(productionId:string,orderedBlockIds:string[]) {
   const {error}=await supabase.rpc('reorder_rundown_blocks',{target_production_id:productionId,ordered_block_ids:orderedBlockIds});
-  if(error)throw error;
+  if(error)throw new Error(error.message||'No se pudo guardar el orden del guión.');
 }
 export async function updateWorkspace(workspaceId:string,w:any) { const {error}=await supabase.from('workspaces').update({name:w.name,description:w.description,production_type:w.type}).eq('id',workspaceId); if(error) throw error; }
 
