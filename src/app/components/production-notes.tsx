@@ -56,12 +56,17 @@ export function ProductionNotes({
  },[ordered,creating,selectedId,title,content,baseline.title,baseline.content]);
 
  const choose=(note:ProductionNoteItem)=>{
-   if(dirty&&!window.confirm('Tenés cambios sin guardar. ¿Querés descartarlos y abrir otra nota?'))return;
+   if(dirty){setError('Tenés cambios sin guardar. Guardá o descartá el borrador antes de abrir otra nota.');return;}
    setCreating(false);setSelectedId(note.id);setTitle(note.title);setContent(note.content);setBaseline({title:note.title,content:note.content});setError('');setMessage('');setConfirmDelete(false);
  };
  const createNew=()=>{
-   if(dirty&&!window.confirm('Tenés cambios sin guardar. ¿Querés descartarlos y crear otra nota?'))return;
+   if(dirty){setError('Tenés cambios sin guardar. Guardá o descartá el borrador antes de crear otra nota.');return;}
    setCreating(true);setSelectedId('');setTitle('');setContent('');setBaseline({title:'',content:''});setError('');setMessage('');setConfirmDelete(false);
+ };
+ const discard=()=>{
+   if(creating){setTitle('');setContent('');setBaseline({title:'',content:''});setCreating(false);const first=ordered[0];setSelectedId(first?.id||'');setTitle(first?.title||'');setContent(first?.content||'');setBaseline({title:first?.title||'',content:first?.content||''});}
+   else if(selected){setTitle(selected.title);setContent(selected.content);setBaseline({title:selected.title,content:selected.content});}
+   setError('');setMessage('Borrador descartado.');
  };
  const save=async()=>{
    if(saving)return;
@@ -108,7 +113,7 @@ export function ProductionNotes({
        {error&&<div className="notes-save-error" role="alert">{error}</div>}
        {message&&<div className="notes-save-success" role="status">{message}</div>}
        {confirmDelete&&<div className="production-note-delete-confirm"><span>¿Eliminar esta nota?</span><div><button type="button" className="btn sm" onClick={()=>setConfirmDelete(false)} disabled={saving}><X size={14}/> Cancelar</button><button type="button" className="btn danger sm" onClick={()=>{void remove()}} disabled={saving}><Trash2 size={14}/>{saving?'Eliminando…':'Eliminar'}</button></div></div>}
-       <div className="notes-save-bar"><span className={dirty?'notes-save-state pending':'notes-save-state'}>{dirty?'Cambios sin guardar · borrador protegido':'Guardado en AVODAH'}</span><button type="button" className="btn primary" disabled={saving||(!dirty&&!creating)||!title.trim()} onClick={()=>{void save()}}><Save size={16}/>{saving?'Guardando…':creating?'Crear nota':'Guardar nota'}</button></div>
+       <div className="notes-save-bar"><span className={dirty?'notes-save-state pending':'notes-save-state'}>{dirty?'Cambios sin guardar · borrador protegido':'Guardado en AVODAH'}</span><div className="production-note-save-actions">{dirty&&<button type="button" className="btn" disabled={saving} onClick={discard}>Descartar</button>}<button type="button" className="btn primary" disabled={saving||(!dirty&&!creating)||!title.trim()} onClick={()=>{void save()}}><Save size={16}/>{saving?'Guardando…':creating?'Crear nota':'Guardar nota'}</button></div></div>
      </>:<div className="production-note-editor-empty"><FileText size={30}/><h3>Elegí una nota</h3><p>Abrí una nota existente o creá una nueva para esta producción.</p><button className="btn primary" onClick={createNew}><FilePlus2 size={16}/> Nueva nota</button></div>}
    </div>
  </section>;
