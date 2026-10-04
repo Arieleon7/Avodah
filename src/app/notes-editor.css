@@ -1,0 +1,11 @@
+/* AVODAH · protected production notes */
+.notes-document-help{max-width:760px;margin:7px 0 0;color:#7D857F;font-size:11px;line-height:1.55}
+.notes-document-meta{display:flex;gap:14px;justify-content:flex-end;margin-top:7px;color:#989089;font-size:9.5px}
+.notes-save-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding-top:13px;border-top:1px solid #ECE5DE}
+.notes-save-state{display:inline-flex;align-items:center;gap:7px;color:#60766A;font-size:11px;font-weight:750}
+.notes-save-state:before{content:"";width:7px;height:7px;border-radius:50%;background:#6A7F71}
+.notes-save-state.pending{color:#985037}
+.notes-save-state.pending:before{background:#A64B2B;box-shadow:0 0 0 4px rgba(166,75,43,.09)}
+.notes-save-success{margin-top:10px;padding:10px 12px;border:1px solid #CFE0D5;border-radius:9px;background:#F0F6F2;color:#51705F;font-size:11px}
+.notes-save-error{margin-top:10px;padding:10px 12px;border:1px solid #E8C5BB;border-radius:9px;background:#FFF2EE;color:#A14335;font-size:11px}
+@media(max-width:760px){.notes-save-bar{align-items:stretch;flex-direction:column}.notes-save-bar .btn{width:100%;justify-content:center}.notes-document-meta{justify-content:flex-start}}
