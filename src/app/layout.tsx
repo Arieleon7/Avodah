@@ -11,6 +11,8 @@ import './art-direction.css';
 import './script-board.css';
 import './multimedia-library.css';
 import './notes-editor.css';
+import './production-notes.css';
+import './block-preview.css';
 
 export const metadata: Metadata = {
   title: 'AVODAH — Donde las ideas se convierten en programas',
