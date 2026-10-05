@@ -1,0 +1,75 @@
+/* AVODAH · Guión document view */
+.script-view-switch{display:inline-flex;align-items:center;padding:3px;border:1px solid #E2DAD2;border-radius:10px;background:#F3EFEA}
+.script-view-switch button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:34px;padding:7px 10px;border:0;border-radius:7px;background:transparent;color:#767D77;font-size:10px;font-weight:800;cursor:pointer}
+.script-view-switch button.active{background:#FFFCF8;color:#9B472D;box-shadow:0 1px 5px rgba(31,35,33,.08)}
+.script-document-shell{display:grid;justify-items:center;width:100%;padding:4px 0 28px}
+.script-document{width:min(900px,100%);overflow:hidden;border:1px solid #DDD6CF;border-radius:5px;background:#FFF;box-shadow:0 18px 55px rgba(31,35,33,.08);color:#252A27}
+.script-document-header{padding:42px 54px 30px;border-bottom:1px solid #DDD8D1}
+.script-document-brand{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:30px;color:#9A4A30}
+.script-document-brand span{font-family:Manrope,Inter,sans-serif;font-size:12px;font-weight:900;letter-spacing:.22em}
+.script-document-brand small{color:#8D8A85;font-size:8px;font-weight:800;letter-spacing:.18em}
+.script-document-header h1{max-width:730px;margin:0;font-family:Manrope,Inter,sans-serif;font-size:34px;line-height:1.1;letter-spacing:-.045em}
+.script-document-topic{max-width:720px;margin:9px 0 0;color:#5F675F;font-size:14px;line-height:1.55}
+.script-document-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-top:23px;color:#7F8680;font-size:10.5px}
+.script-document-meta span{display:inline-flex;align-items:center;gap:6px}
+.script-document-intro{padding:20px 54px;border-bottom:1px solid #E8E3DD;background:#FAF8F5}
+.script-document-label{display:block;margin-bottom:7px;color:#A64B2B;font-size:8px;font-weight:900;letter-spacing:.14em}
+.script-document-intro p{margin:0;color:#4E5650;font-size:12px;line-height:1.55}
+.script-document-body{padding:12px 54px 50px}
+.script-document-block{position:relative;padding:34px 0 32px;border-bottom:1px solid #DED9D2}
+.script-document-block:last-child{border-bottom:0}
+.script-document-block-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:14px}
+.script-document-block-head>div:first-child{display:flex;align-items:center;gap:9px}
+.script-block-number{color:#A64B2B;font-family:Manrope,Inter,sans-serif;font-size:10px;font-weight:900;letter-spacing:.12em}
+.script-block-kind{padding:4px 7px;border-radius:5px;background:#F2ECE7;color:#786A61;font-size:8px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.script-block-document-meta{display:flex;align-items:center;gap:7px 13px;flex-wrap:wrap;color:#92948F;font-size:9.5px}
+.script-block-document-meta span+span:before{content:"·";margin-right:13px}
+.script-document-block h2{margin:0 0 18px;font-family:Manrope,Inter,sans-serif;font-size:21px;line-height:1.25;letter-spacing:-.035em}
+.script-document-copy{font-size:13.25px;line-height:1.77;color:#333A35}
+.script-document-copy p{margin:0 0 15px;white-space:pre-wrap}
+.script-document-copy p:last-child{margin-bottom:0}
+.script-document-empty{color:#9A9D98;font-style:italic}
+.script-document-inline-actions{display:flex;justify-content:flex-end;gap:5px;margin-top:18px;opacity:0;transition:opacity .15s}
+.script-document-block:hover .script-document-inline-actions,.script-document-song:hover .script-document-inline-actions{opacity:1}
+.script-document-inline-actions button{display:inline-flex;align-items:center;gap:5px;min-height:31px;padding:6px 8px;border:1px solid #E5DFD9;border-radius:7px;background:#FFF;color:#777E78;font-size:9px;font-weight:750;cursor:pointer}
+.script-document-inline-actions button:hover{border-color:#D1B7A8;color:#99492F;background:#FFF9F5}
+.script-document-song{position:relative;padding:22px 0;border-bottom:1px solid #DED9D2}
+.script-song-line{display:grid;grid-template-columns:22px auto minmax(0,1fr);align-items:center;gap:7px;color:#A64B2B}
+.script-song-line>span{font-size:9px;font-weight:900;letter-spacing:.14em}
+.script-song-line>strong{padding-left:8px;border-left:1px solid #D8CDC5;color:#303632;font-family:Manrope,Inter,sans-serif;font-size:13px}
+.script-song-notes{margin:12px 0 0 29px;color:#626A64;font-size:11.5px;line-height:1.65}
+.script-song-notes p{margin:0 0 8px;white-space:pre-wrap}
+.script-document-empty-state{padding:54px;text-align:center;color:#8B918C;font-size:12px}
+@media(max-width:760px){
+ .script-view-switch{width:100%;display:grid;grid-template-columns:1fr 1fr}
+ .script-view-switch button{width:100%;min-height:38px}
+ .script-document-shell{margin:0 -12px;width:calc(100% + 24px);padding-bottom:16px}
+ .script-document{border-left:0;border-right:0;border-radius:0;box-shadow:none}
+ .script-document-header{padding:25px 19px 22px}
+ .script-document-brand{margin-bottom:20px}
+ .script-document-brand span{font-size:10px}
+ .script-document-brand small{font-size:7px}
+ .script-document-header h1{font-size:27px}
+ .script-document-topic{font-size:12px}
+ .script-document-meta{display:grid;gap:7px;margin-top:17px}
+ .script-document-intro{padding:15px 19px}
+ .script-document-body{padding:0 19px 30px}
+ .script-document-block{padding:26px 0 25px}
+ .script-document-block-head{gap:10px;margin-bottom:12px}
+ .script-document-block-head>div:first-child{align-items:flex-start;flex-direction:column;gap:5px}
+ .script-block-document-meta{justify-content:flex-end;max-width:45%;text-align:right}
+ .script-block-document-meta span+span:before{display:none}
+ .script-document-block h2{font-size:19px;margin-bottom:14px}
+ .script-document-copy{font-size:13px;line-height:1.72}
+ .script-document-inline-actions{opacity:1;margin-top:15px}
+ .script-document-inline-actions button{min-height:36px;padding:7px 10px}
+ .script-document-song{padding:19px 0}
+ .script-song-line{grid-template-columns:20px auto minmax(0,1fr)}
+}
+@media print{
+ .script-view-switch,.script-document-inline-actions,.mobile-nav,.mobile-head,.global-toolbar,.quick-chat-root,.sidebar,.detail-back,.production-detail-stage,.tabs,.rundown-summary{display:none!important}
+ .main{padding:0!important}
+ .script-document-shell{padding:0}
+ .script-document{width:100%;border:0;box-shadow:none}
+ .script-document-header{padding-top:20px}
+}
