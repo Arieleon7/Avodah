@@ -265,6 +265,48 @@ export async function insertTask(workspaceId:string,userId:string,t:any,members:
 }
 export async function updateTaskStatus(taskId:string,status:string) { const {error}=await supabase.from('tasks').update({status:taskStatusToDb[status]??'pending'}).eq('id',taskId); if(error) throw error; }
 export async function insertMessage(channelId:string,userId:string,text:string) { const {data,error}=await supabase.from('chat_messages').insert({channel_id:channelId,author_id:userId,body:text}).select('id').single(); if(error) throw error; return data.id as string; }
+
+export type PushPreferences={notifyChat:boolean;notifyUpdates:boolean};
+export async function getPushSubscription(workspaceId:string,userId:string,endpoint:string){
+  const {data,error}=await supabase.from('push_subscriptions')
+    .select('id,notify_chat,notify_updates,endpoint')
+    .eq('workspace_id',workspaceId).eq('user_id',userId).eq('endpoint',endpoint).maybeSingle();
+  if(error)throw error;
+  return data?{id:data.id as string,endpoint:data.endpoint as string,notifyChat:!!data.notify_chat,notifyUpdates:!!data.notify_updates}:null;
+}
+export async function upsertPushSubscription(workspaceId:string,userId:string,subscription:PushSubscription,prefs:PushPreferences){
+  const json=subscription.toJSON();
+  const endpoint=json.endpoint||subscription.endpoint;
+  const p256dh=json.keys?.p256dh;
+  const auth=json.keys?.auth;
+  if(!endpoint||!p256dh||!auth)throw new Error('El navegador no entregó una suscripción válida.');
+  const {data,error}=await supabase.from('push_subscriptions').upsert({
+    workspace_id:workspaceId,user_id:userId,endpoint,p256dh,auth,
+    notify_chat:prefs.notifyChat,notify_updates:prefs.notifyUpdates,
+    user_agent:typeof navigator!=='undefined'?navigator.userAgent:'',
+  },{onConflict:'workspace_id,user_id,endpoint'}).select('id').single();
+  if(error)throw error;
+  return data.id as string;
+}
+export async function updatePushPreferences(workspaceId:string,userId:string,endpoint:string,prefs:PushPreferences){
+  const {data,error}=await supabase.from('push_subscriptions').update({
+    notify_chat:prefs.notifyChat,notify_updates:prefs.notifyUpdates,
+  }).eq('workspace_id',workspaceId).eq('user_id',userId).eq('endpoint',endpoint).select('id').maybeSingle();
+  if(error)throw error;
+  if(!data)throw new Error('No se encontró este dispositivo registrado.');
+}
+export async function deletePushSubscription(workspaceId:string,userId:string,endpoint:string){
+  const {error}=await supabase.from('push_subscriptions').delete()
+    .eq('workspace_id',workspaceId).eq('user_id',userId).eq('endpoint',endpoint);
+  if(error)throw error;
+}
+export async function logWorkspaceActivity(workspaceId:string,userId:string,action:string,targetType:string,targetId:string|null,message:string,title?:string){
+  const {error}=await supabase.from('activity_events').insert({
+    workspace_id:workspaceId,actor_id:userId,action,target_type:targetType,target_id:targetId,
+    metadata:{message,title:title||'Cambios del programa'},
+  });
+  if(error)throw error;
+}
 export async function insertBlock(productionId:string,b:any,members:any[]) { const responsible=members.find((m:any)=>m.name===b.responsible); const {data,error}=await supabase.from('rundown_blocks').insert({production_id:productionId,position:b.order,type:b.type,title:b.title,duration_min:b.duration,responsible_id:responsible?.id??null,notes:b.notes,status:b.status}).select('id').single(); if(error) throw error; return data.id as string; }
 export async function updateBlockPosition(blockId:string,position:number) { const {error}=await supabase.from('rundown_blocks').update({position}).eq('id',blockId); if(error) throw error; }
 export async function reorderBlocks(productionId:string,orderedBlockIds:string[]) {
