@@ -1,0 +1,19 @@
+/* AVODAH · Mobile push notifications */
+.settings-stack{display:grid;gap:14px;max-width:760px}
+.settings-main-card{max-width:none!important}
+.push-settings-card{padding:20px;box-shadow:var(--surface-shadow)}
+.push-settings-head{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:12px}
+.push-settings-icon{display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:#F3E3D9;color:#A64B2B}
+.push-settings-head h2{margin:4px 0 3px;font-family:Manrope,Inter,sans-serif;font-size:20px;letter-spacing:-.04em}
+.push-settings-head p{margin:0;color:#7E8881;font-size:11px}
+.push-status{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:5px 8px;border-radius:8px;background:#F0ECE7;color:#7B817D;font-size:9px;font-weight:850}
+.push-status.active{background:#E5EEE8;color:#547060}.push-status.error,.push-status.denied{background:#F8E6E0;color:#9A4938}
+.push-guidance{display:flex;gap:10px;margin-top:15px;padding:12px;border:1px solid #D9E2DC;border-radius:10px;background:#F3F7F4;color:#597064}
+.push-guidance.warning{border-color:#E8D3C7;background:#FCF2EC;color:#87503B}.push-guidance svg{flex:none;margin-top:1px}.push-guidance strong{font-size:11.5px}.push-guidance p{margin:4px 0 0;font-size:10.5px;line-height:1.55}
+.push-preferences{display:grid;margin-top:16px;border:1px solid #E8E1DA;border-radius:11px;overflow:hidden}
+.push-preferences>div{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:10px;padding:13px 14px;background:#FFFCF8}
+.push-preferences>div+div{border-top:1px solid #EEE8E1}.push-pref-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:#F2EEE9;color:#765F53}.push-preferences strong{display:block;font-size:11.5px}.push-preferences p{margin:3px 0 0;color:#858D87;font-size:10px;line-height:1.4}
+.push-switch{position:relative;width:42px;height:24px;padding:0;border:0;border-radius:99px;background:#D8D5D0;cursor:pointer;transition:background .15s}.push-switch i{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#FFF;box-shadow:0 1px 4px rgba(0,0,0,.16);transition:transform .15s}.push-switch.on{background:#A64B2B}.push-switch.on i{transform:translateX(18px)}.push-switch:disabled{opacity:.48;cursor:not-allowed}
+.push-message{margin-top:12px;padding:9px 11px;border-radius:8px;font-size:10.5px}.push-message.error{background:#FFF0EC;color:#9D4738}.push-message.success{background:#EDF5F0;color:#557361}
+.push-settings-actions{display:flex;align-items:center;gap:12px;margin-top:15px}.push-settings-actions small{color:#8A918C;font-size:9.5px;line-height:1.45}
+@media(max-width:760px){.settings-stack{gap:10px}.push-settings-card{padding:14px}.push-settings-head{grid-template-columns:40px minmax(0,1fr);gap:9px}.push-settings-icon{width:40px;height:40px}.push-status{grid-column:1/-1;justify-self:start}.push-preferences>div{grid-template-columns:34px minmax(0,1fr) auto;padding:12px 10px}.push-settings-actions{align-items:stretch;flex-direction:column}.push-settings-actions .btn{width:100%;justify-content:center}}

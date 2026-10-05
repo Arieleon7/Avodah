@@ -7,13 +7,14 @@ import {ResourceLibrary,ResourceQuickView,ResourceMedia,ResourceCreate,previewFi
 import {ScriptBoard} from './components/script-board';
 import {ProductionNotes,type ProductionNoteItem} from './components/production-notes';
 import {BlockPreviewDialog} from './components/block-preview';
+import {PushNotificationsCard} from './components/push-notifications';
 import {ProductionArtwork,ProductionCoverEditor,YoutubeLiveAccess,ProductionCreate,type ProductionCreation} from './components/production-media';
 import {parseYoutubeLive,validYoutubeLive} from '@/lib/production-media';
 import {BlockEditorDialog,CalendarEditorDialog,WorkspaceEditorDialog,FlexibleTextArea,type BlockDraft,type CalendarDraft,type WorkspaceDraft} from './components/editor-dialogs';
 import {safeResourceUrl,guessResourcePreview,type ResourcePreview} from '@/lib/resource-preview';
 import { LayoutDashboard, Radio, Lightbulb, BookOpen, CalendarDays, CheckSquare, MessageCircle, Users, Settings as SettingsIcon, Video, Search, Plus, ArrowUpRight, Mic2, Clock3, Menu, X, ChevronRight, ChevronDown, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
 import {
-  archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, deleteProductionNote, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, insertProductionNote, uploadLibraryFile, updateLibraryPreview, updateLibraryItem as cloudUpdateLibraryItem, requestResourcePreview, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, reorderBlocks, updateMemberRole, updateProduction, updateProductionNote, uploadProductionCover, removeProductionCover, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment,
+  archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, deleteProductionNote, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, insertProductionNote, uploadLibraryFile, updateLibraryPreview, updateLibraryItem as cloudUpdateLibraryItem, requestResourcePreview, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, reorderBlocks, updateMemberRole, updateProduction, updateProductionNote, uploadProductionCover, removeProductionCover, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment, logWorkspaceActivity,
 } from '@/lib/cloud';
 
 type Section = 'inicio'|'producciones'|'ideas'|'biblioteca'|'calendario'|'tareas'|'chat'|'equipo'|'configuracion'|'reunion';
@@ -213,12 +214,17 @@ export default function Home(){
   useEffect(()=>{if(mode!=='cloud'||!workspace.id)return;return subscribeWorkspace(workspace.id,()=>{void loadCloud(workspace.id)})},[mode,workspace.id,loadCloud]);
 
   const cloudAction=async(action:()=>Promise<void>)=>{try{setCloudError('');await action();if(mode==='cloud'&&workspace.id)await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el cambio.')}};
+  const announceChange=async(message:string,targetType:string,targetId:string|null,title='Cambios del programa')=>{
+    if(mode!=='cloud'||!user)return;
+    try{await logWorkspaceActivity(workspace.id,user.id,'changed',targetType,targetId,message,title)}catch{}
+  };
   const handleCreateProduction=async(input:ProductionCreation):Promise<string>=>{
     const production:Production={...input,members:mode==='cloud'&&user?[user.id]:['m1'],youtubeLiveUrl:input.youtubeLiveUrl||''};
     if(mode==='cloud'&&user){
       try{
         setCloudError('');
         const pid=await insertProduction(workspace.id,user.id,production);
+        await announceChange(currentUserName+' creó la producción “'+production.title+'”.','production',pid,'Nueva producción');
         await loadCloud(workspace.id);
         return pid;
       }catch(err){setCloudError(err instanceof Error?err.message:'No se pudo crear el programa.');throw err}
@@ -292,19 +298,19 @@ export default function Home(){
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo editar el recurso.');throw err}
     }else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...i}:item));
   };
-  const handleTask=async(t:Task)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await insertTask(workspace.id,user.id,t,members)});else setTasks(x=>[t,...x])};
+  const handleTask=async(t:Task)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{const taskId=await insertTask(workspace.id,user.id,t,members);await announceChange(currentUserName+' agregó la tarea “'+t.title+'”.','task',taskId,'Nueva tarea')});else setTasks(x=>[t,...x])};
   const handleReactIdea=async(i:Idea)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await cloudReactIdea(i.id,user.id)});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,reactions:q.reactions+1}:q))};
   const handleCommentIdea=async(i:Idea,text:string)=>{if(!text.trim())return;if(mode==='cloud'&&user)await cloudAction(async()=>{await insertIdeaComment(i.id,user.id,text.trim())});else setIdeas(all=>all.map(x=>x.id===i.id?{...x,comments:x.comments+1,commentItems:[...(x.commentItems??[]),{id:id('ic'),author:currentUserName,text:text.trim(),time:'Ahora'}]}:x))};
   const handleArchiveIdea=async(i:Idea)=>{if(mode==='cloud')await cloudAction(async()=>{await cloudArchiveIdea(i.id)});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,archived:true}:q))};
   const handleConvertIdea=async(i:Idea)=>{const p:Production={id:id('p'),title:i.title,type:'Personalizado',status:'Idea',date:'2026-10-10',time:'19:00',duration:60,completion:10,topic:i.title,question:i.description,objective:'Definir objetivo',description:i.description,references:[],hosts:[currentUserName],guests:[],notes:'Creada desde una idea.',members:user?[user.id]:['m1']};if(mode==='cloud'&&user)await cloudAction(async()=>{await insertProduction(workspace.id,user.id,p);await cloudArchiveIdea(i.id)});else{setProductions(x=>[p,...x]);setIdeas(x=>x.map(q=>q.id===i.id?{...q,archived:true}:q))}};
-  const handleTaskStatus=async(t:Task,status:TaskStatus)=>{if(mode==='cloud')await cloudAction(async()=>{await updateTaskStatus(t.id,status)});else setTasks(all=>all.map(x=>x.id===t.id?{...x,status}:x))};
+  const handleTaskStatus=async(t:Task,status:TaskStatus)=>{if(mode==='cloud')await cloudAction(async()=>{await updateTaskStatus(t.id,status);await announceChange(currentUserName+' cambió “'+t.title+'” a '+status+'.','task',t.id,'Tarea actualizada')});else setTasks(all=>all.map(x=>x.id===t.id?{...x,status}:x))};
   const handleSend=async(channelId:string,text:string,file?:File)=>{if(mode==='cloud'&&user){const dbId=channels.find(c=>c.id===channelId)?.dbId??channelId;await cloudAction(async()=>{const messageId=await insertMessage(dbId,user.id,text||file?.name||'Archivo adjunto');if(file)await uploadMessageAttachment(workspace.id,messageId,file)})}else setMessages(x=>[...x,{id:id('msg'),channel:channelId,author:currentUserName,text:text||file?.name||'Archivo adjunto',time:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),attachments:file?[{id:id('att'),name:file.name,mimeType:file.type,size:file.size,url:URL.createObjectURL(file)}]:[]}])};
-  const handleAddBlock=async(b:Block)=>{if(mode==='cloud'){try{setCloudError('');await insertBlock(b.productionId,b,members);await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el bloque.');throw err}}else setBlocks(x=>[...x,b])};
+  const handleAddBlock=async(b:Block)=>{if(mode==='cloud'){try{setCloudError('');const blockId=await insertBlock(b.productionId,b,members);await announceChange(currentUserName+' agregó “'+b.title+'” al Guión.','rundown_block',blockId,'Guión actualizado');await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el bloque.');throw err}}else setBlocks(x=>[...x,b])};
   const handleReorderBlocks=async(pid:string,orderedIds:string[])=>{
     const scoped=blocks.filter(b=>b.productionId===pid);
     if(orderedIds.length!==scoped.length)return;
     if(mode==='cloud'){
-      try{setCloudError('');await reorderBlocks(pid,orderedIds);await loadCloud(workspace.id)}
+      try{setCloudError('');await reorderBlocks(pid,orderedIds);await announceChange(currentUserName+' reordenó el Guión.','production',pid,'Guión actualizado');await loadCloud(workspace.id)}
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el orden del guión.');throw err}
     }else{
       const orderMap=new Map(orderedIds.map((id,index)=>[id,index+1]));
@@ -316,7 +322,7 @@ export default function Home(){
     if(!validYoutubeLive(p.youtubeLiveUrl||''))throw new Error('Ingresá un enlace válido de YouTube.');
     const updated={...p,youtubeLiveUrl:parseYoutubeLive(p.youtubeLiveUrl||'')?.url||''};
     if(mode==='cloud'){
-      try{setCloudError('');await updateProduction(p.id,updated);await loadCloud(workspace.id)}
+      try{setCloudError('');await updateProduction(p.id,updated);await announceChange(currentUserName+' actualizó la producción “'+updated.title+'”.','production',p.id,'Producción actualizada');await loadCloud(workspace.id)}
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudieron guardar los cambios.');throw err}
     }else setProductions(all=>all.map(x=>x.id===p.id?updated:x));
   };
@@ -362,7 +368,7 @@ export default function Home(){
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo eliminar la nota.');throw err}
     }else setProductionNotes(all=>all.filter(n=>n.id!==noteId));
   };
-  const handleEditBlock=async(b:Block)=>{if(mode==='cloud'){try{setCloudError('');await updateBlock(b.id,b,members);await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo editar el bloque.');throw err}}else setBlocks(all=>all.map(x=>x.id===b.id?b:x))};
+  const handleEditBlock=async(b:Block)=>{if(mode==='cloud'){try{setCloudError('');await updateBlock(b.id,b,members);await announceChange(currentUserName+' actualizó el bloque “'+b.title+'”.','rundown_block',b.id,'Guión actualizado');await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo editar el bloque.');throw err}}else setBlocks(all=>all.map(x=>x.id===b.id?b:x))};
   const handleDeleteBlock=async(b:Block)=>{if(!window.confirm(`¿Eliminar el bloque \"${b.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteBlock(b.id)});else setBlocks(all=>all.filter(x=>x.id!==b.id))};
   const handleLinkResource=async(pid:string,itemId:string)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await linkResourceToProduction(pid,itemId,user.id)});else setProductions(all=>all.map(x=>x.id===pid?{...x,resourceIds:Array.from(new Set([...(x.resourceIds??[]),itemId]))}:x))};
   const handleUnlinkResource=async(pid:string,itemId:string)=>{if(mode==='cloud')await cloudAction(async()=>{await unlinkResourceFromProduction(pid,itemId)});else setProductions(all=>all.map(x=>x.id===pid?{...x,resourceIds:(x.resourceIds??[]).filter(id=>id!==itemId)}:x))};
@@ -460,7 +466,7 @@ export default function Home(){
        section==='tareas'?<Tasks tasks={tasks} setModal={setModal} onStatus={handleTaskStatus} onDelete={handleDeleteTask}/>:
        section==='chat'?<Chat channels={channels} channel={channel} setChannel={setChannel} messages={messages} onSend={handleSend} onReact={handleMessageReaction} onPin={handlePinMessage} currentUserId={user?.id} cloud={isCloud}/>:
        section==='equipo'?<Team cloud={isCloud} canManage={currentMember?.role==='Administrador'||currentMember?.role==='Propietario'||(isCloud&&workspace.ownerId===user?.id)} ownerId={workspace.ownerId} currentUserId={user?.id} onInvite={handleInvite} onRole={handleMemberRole}/>:
-       section==='configuracion'?<Settings workspace={workspace} setWorkspace={setWorkspace} onSave={handleSaveWorkspace} onCreateWorkspace={handleCreateWorkspace} cloud={isCloud}/>:
+       section==='configuracion'?<Settings workspace={workspace} setWorkspace={setWorkspace} onSave={handleSaveWorkspace} onCreateWorkspace={handleCreateWorkspace} cloud={isCloud} userId={user?.id}/>:
        <Meeting workspace={workspace}/>
       }
     </main>
@@ -666,7 +672,7 @@ function Team({cloud,canManage,ownerId,currentUserId,onInvite,onRole}:{cloud:boo
   })}</div>
  <div className="notice team-permission-notice" style={{marginTop:18}}>{cloud?(canManage?'Podés invitar integrantes y administrar sus roles. El propietario siempre conserva el control de la comunidad.':'Podés consultar el equipo. Los administradores y el propietario gestionan invitaciones y roles.'):'En modo demo no se envían invitaciones. Iniciá sesión para crear un equipo real.'}</div></>;
 }
-function Settings({workspace,setWorkspace,onSave,onCreateWorkspace,cloud}:{workspace:Workspace;setWorkspace:React.Dispatch<React.SetStateAction<Workspace>>;onSave:(w:Workspace)=>void|Promise<void>;onCreateWorkspace:()=>void|Promise<void>;cloud:boolean}){return <><Header title="Configuración" subtitle="Identidad y preferencias de este espacio de trabajo."/><div className="card" style={{maxWidth:720}}><div className="form-row"><div className="field"><label>Nombre</label><input className="input" value={workspace.name} onChange={e=>setWorkspace(w=>({...w,name:e.target.value,initials:e.target.value.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}))}/></div><div className="field"><label>Tipo</label><select className="select" value={workspace.type} onChange={e=>setWorkspace(w=>({...w,type:e.target.value}))}><option>Multiformato</option><option>Radio</option><option>Streaming</option><option>Podcast</option><option>Videopodcast</option><option>YouTube / Contenido</option></select></div></div><div className="field" style={{marginTop:12}}><label>Descripción</label><textarea className="textarea" value={workspace.description} onChange={e=>setWorkspace(w=>({...w,description:e.target.value}))}/></div><div className="actions" style={{marginTop:14}}><button className="btn primary" onClick={()=>{void onSave(workspace)}}>Guardar cambios</button><span className="muted" style={{fontSize:12}}>{cloud?'Se guarda en AVODAH Cloud':'Se guarda en este dispositivo'}</span></div>{cloud&&<div className="settings-divider"><div><strong>Otro equipo o proyecto</strong><p className="muted">Podés crear más espacios y alternar entre ellos desde el menú lateral.</p></div><button className="btn" onClick={()=>{void onCreateWorkspace()}}>+ Crear otro espacio</button></div>}</div></>}
+function Settings({workspace,setWorkspace,onSave,onCreateWorkspace,cloud,userId}:{workspace:Workspace;setWorkspace:React.Dispatch<React.SetStateAction<Workspace>>;onSave:(w:Workspace)=>void|Promise<void>;onCreateWorkspace:()=>void|Promise<void>;cloud:boolean;userId?:string}){return <><Header title="Configuración" subtitle="Identidad y preferencias de este espacio de trabajo."/><div className="settings-stack"><div className="card settings-main-card"><div className="form-row"><div className="field"><label>Nombre</label><input className="input" value={workspace.name} onChange={e=>setWorkspace(w=>({...w,name:e.target.value,initials:e.target.value.split(' ').map(s=>s[0]).join('').slice(0,2).toUpperCase()}))}/></div><div className="field"><label>Tipo</label><select className="select" value={workspace.type} onChange={e=>setWorkspace(w=>({...w,type:e.target.value}))}><option>Multiformato</option><option>Radio</option><option>Streaming</option><option>Podcast</option><option>Videopodcast</option><option>YouTube / Contenido</option></select></div></div><div className="field" style={{marginTop:12}}><label>Descripción</label><textarea className="textarea" value={workspace.description} onChange={e=>setWorkspace(w=>({...w,description:e.target.value}))}/></div><div className="actions" style={{marginTop:14}}><button className="btn primary" onClick={()=>{void onSave(workspace)}}>Guardar cambios</button><span className="muted" style={{fontSize:12}}>{cloud?'Se guarda en AVODAH Cloud':'Se guarda en este dispositivo'}</span></div>{cloud&&<div className="settings-divider"><div><strong>Otro equipo o proyecto</strong><p className="muted">Podés crear más espacios y alternar entre ellos desde el menú lateral.</p></div><button className="btn" onClick={()=>{void onCreateWorkspace()}}>+ Crear otro espacio</button></div>}</div><PushNotificationsCard workspaceId={workspace.id} userId={userId} cloud={cloud}/></div></>}
 
 
 function Meeting({workspace}:{workspace:Workspace}){const room=`avodah-${workspace.name.toLowerCase().replace(/[^a-z0-9]+/g,'-')}`;const url=`https://meet.jit.si/${room}`;return <><Header title="Reunión" subtitle={`Sala del equipo · ${workspace.name}`}><a className="btn" href={url} target="_blank">Abrir en nueva pestaña ↗</a></Header><div className="notice">La videollamada usa Jitsi, sin requerir una cuenta adicional para esta primera versión. Más adelante podemos integrar LiveKit para una experiencia totalmente embebida.</div><div className="meeting"><div className="meeting-bar"><strong>🎥 {room}</strong><span className="pill green">Sala lista</span></div><iframe className="jitsi" src={url} allow="camera; microphone; fullscreen; display-capture" title="Sala de reunión AVODAH"/></div></>}

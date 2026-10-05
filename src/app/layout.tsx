@@ -14,6 +14,7 @@ import './notes-editor.css';
 import './production-notes.css';
 import './block-preview.css';
 import './responsive-final.css';
+import './push-notifications.css';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -25,6 +26,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'AVODAH — Donde las ideas se convierten en programas',
   description: 'Donde las ideas se convierten en programas.',
+  applicationName: 'AVODAH',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, statusBarStyle: 'default', title: 'AVODAH' },
+  icons: { icon: '/brand/avodah-icon.svg', apple: '/brand/avodah-icon.svg' },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
