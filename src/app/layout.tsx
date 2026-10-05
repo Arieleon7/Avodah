@@ -9,6 +9,7 @@ import './brand-system.css';
 import './product-polish.css';
 import './art-direction.css';
 import './script-board.css';
+import './script-document.css';
 import './multimedia-library.css';
 import './notes-editor.css';
 import './production-notes.css';

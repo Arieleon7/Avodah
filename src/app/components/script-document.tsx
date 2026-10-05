@@ -31,6 +31,9 @@ export function ScriptDocumentView({
  const ordered=[...blocks].sort((a,b)=>a.order-b.order);
  const total=ordered.reduce((sum,block)=>sum+Number(block.duration||0),0);
  const participants=(production.hosts??[]).filter(Boolean);
+ const blockNumberById=new Map<string,number>();
+ let visibleBlockNumber=0;
+ ordered.forEach(block=>{if(!isSong(block)){visibleBlockNumber+=1;blockNumberById.set(block.id,visibleBlockNumber)}});
 
  return <section className="script-document-shell">
    <article className="script-document" aria-label={'Guión en formato documento de '+production.title}>
@@ -51,7 +54,7 @@ export function ScriptDocumentView({
      </section>}
 
      <div className="script-document-body">
-       {ordered.map((block,index)=>{
+       {ordered.map(block=>{
          const paragraphs=contentParagraphs(block.notes);
          if(isSong(block))return <section className="script-document-song" key={block.id}>
            <div className="script-song-line"><Music2 size={17}/><span>CANCIÓN</span><strong>{block.title}</strong></div>
@@ -65,7 +68,7 @@ export function ScriptDocumentView({
          return <section className="script-document-block" key={block.id}>
            <div className="script-document-block-head">
              <div>
-               <span className="script-block-number">{index+1} BLOQUE</span>
+               <span className="script-block-number">{blockNumberById.get(block.id)} BLOQUE</span>
                <span className="script-block-kind">{block.type}</span>
              </div>
              <div className="script-block-document-meta">
