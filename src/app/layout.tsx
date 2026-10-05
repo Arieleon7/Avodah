@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './resource-library.css';
 import './editor-dialogs.css';
@@ -13,6 +13,14 @@ import './multimedia-library.css';
 import './notes-editor.css';
 import './production-notes.css';
 import './block-preview.css';
+import './responsive-final.css';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#F8F5EE',
+};
 
 export const metadata: Metadata = {
   title: 'AVODAH — Donde las ideas se convierten en programas',
