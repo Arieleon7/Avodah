@@ -48,16 +48,13 @@
 
 /* Reliable pointer-capture drag interaction */
 .script-board-help b{color:#5E5149;font-weight:850}
-.script-drag-handle{width:48px;height:60px;gap:2px;grid-auto-flow:row}
-.script-drag-handle span{display:block;font-size:6.5px;font-weight:900;letter-spacing:.08em;line-height:1;color:#9A877C}
-.script-drag-handle:hover span,.script-drag-handle[aria-pressed="true"] span{color:#A64B2B}
+.script-drag-handle{width:42px;height:48px;gap:0}
 .script-drag-handle[aria-pressed="true"]{background:#F3DFD3;color:#A64B2B;cursor:grabbing}
 .script-moving-badge{position:absolute;right:12px;top:-9px;z-index:8;padding:4px 7px;border-radius:99px;background:#A64B2B;color:#FFF;font-size:7.5px;font-weight:900;letter-spacing:.1em;box-shadow:0 4px 12px rgba(166,75,43,.24);pointer-events:none}
 .script-block.is-dragging{outline:2px solid rgba(166,75,43,.16);outline-offset:2px}
 .script-dragging-body,.script-dragging-body *{cursor:grabbing!important}
 @media(max-width:760px){
- .script-drag-handle{width:46px;height:64px}
- .script-drag-handle span{font-size:6px}
+ .script-drag-handle{width:40px;height:44px}
  .script-board-help span{line-height:1.45}
  .script-moving-badge{right:9px;top:-8px}
 }
