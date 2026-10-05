@@ -131,21 +131,27 @@ export function ScriptBoard({blocks,onReorder,onOpen,onEdit,onDuplicate,onDelete
    <div className="script-board-help"><GripVertical size={15}/><span><b>Para mover:</b> mantené presionado el asa y desplazá el bloque.</span>{saving&&<strong>Guardando orden…</strong>}</div>
    {error&&<div className="script-board-error" role="alert">{error}</div>}
    <div className="script-list">{items.map((block,index)=><article key={block.id} data-script-block-id={block.id} className={'script-block'+(dragId===block.id?' is-dragging':'')}>
-     <button
-       type="button"
-       className="script-drag-handle"
-       aria-label={'Mover '+block.title+'. Mantené presionado o usá las flechas arriba y abajo.'}
-       aria-pressed={dragId===block.id}
-       title="Mantener presionado y mover"
-       onPointerDown={event=>startDrag(event,block.id)}
-       onPointerMove={dragMove}
-       onPointerUp={finishDrag}
-       onPointerCancel={cancelDrag}
-       onKeyDown={event=>keyboardMove(event,block.id)}
-       disabled={saving}
-     ><GripVertical size={21}/></button>
-     <div className="script-index" aria-hidden="true">{String(index+1).padStart(2,'0')}</div>
-     <button type="button" className="script-main script-open" onClick={()=>onOpen(block)} aria-label={'Abrir '+block.title}><div className="script-meta"><span className="script-type">{block.type}</span><span>{block.duration} min</span>{block.responsible&&<span>{block.responsible}</span>}</div><h4>{block.title}</h4><p>{block.notes||'Sin notas para este bloque.'}</p></button>
+     <div className="script-card-row">
+       <button
+         type="button"
+         className="script-drag-handle"
+         aria-label={'Mover '+block.title+'. Mantené presionado o usá las flechas arriba y abajo.'}
+         aria-pressed={dragId===block.id}
+         title="Mantener presionado y mover"
+         onPointerDown={event=>startDrag(event,block.id)}
+         onPointerMove={dragMove}
+         onPointerUp={finishDrag}
+         onPointerCancel={cancelDrag}
+         onKeyDown={event=>keyboardMove(event,block.id)}
+         disabled={saving}
+       ><GripVertical size={21}/></button>
+       <button type="button" className="script-main script-open" onClick={()=>onOpen(block)} aria-label={'Abrir '+block.title}>
+         <div className="script-meta"><span className="script-type">{block.type}</span><span>{block.duration} min</span>{block.responsible&&<span>{block.responsible}</span>}</div>
+         <h4>{block.title}</h4>
+         <p>{block.notes||'Sin notas para este bloque.'}</p>
+       </button>
+       <div className="script-index" aria-hidden="true">{String(index+1).padStart(2,'0')}</div>
+     </div>
      <div className="script-actions">
        <button type="button" className="icon-btn script-open-action" onClick={()=>onOpen(block)} aria-label={'Abrir '+block.title} title="Abrir"><Eye size={15}/></button>
        <button type="button" className="icon-btn" onClick={()=>onEdit(block)} aria-label={'Editar '+block.title} title="Editar"><Pencil size={15}/></button>

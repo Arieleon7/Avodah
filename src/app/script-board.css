@@ -58,3 +58,33 @@
  .script-board-help span{line-height:1.45}
  .script-moving-badge{right:9px;top:-8px}
 }
+
+
+/* Script card structural layout */
+.script-block{
+  display:block;
+  min-width:0;
+}
+.script-card-row{
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) 38px;
+  align-items:start;
+  gap:11px;
+  min-width:0;
+}
+.script-card-row .script-drag-handle,
+.script-card-row .script-index,
+.script-card-row .script-main{
+  min-width:0;
+}
+.script-card-row .script-index{justify-self:end}
+.script-block>.script-actions{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:5px;
+  width:100%;
+  margin-top:10px;
+  padding-top:9px;
+  border-top:1px solid #EEE8E1;
+}
