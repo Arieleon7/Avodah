@@ -48,8 +48,8 @@ export function ResourceMedia({item}:{item:ResourceItem}){
 }
 
 export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,onLink,onUnlink}:{item:ResourceItem;onClose:()=>void;onPreview:(i:ResourceItem)=>void|Promise<void>;onUpdate:(i:ResourceItem)=>void|Promise<void>;productions?:ResourceProduction[];onLink?:(pid:string,id:string)=>void|Promise<void>;onUnlink?:()=>void}){
- const [editing,setEditing]=useState(false),[draft,setDraft]=useState(item),[busy,setBusy]=useState(false),[error,setError]=useState(''),[savedMessage,setSavedMessage]=useState(''),[copied,setCopied]=useState(false),[target,setTarget]=useState('');
- useEffect(()=>setDraft(item),[item]);
+ const [editing,setEditing]=useState(false),[draft,setDraft]=useState(item),[tagsInput,setTagsInput]=useState(item.tags.join(', ')),[busy,setBusy]=useState(false),[error,setError]=useState(''),[savedMessage,setSavedMessage]=useState(''),[copied,setCopied]=useState(false),[target,setTarget]=useState('');
+ useEffect(()=>{if(!editing){setDraft(item);setTagsInput(item.tags.join(', '))}},[item,editing]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key)},[onClose]);
  const preview=resourceInfo(item),url=safeResourceUrl(item.url),embed=resourceEmbed(url);
  const isFile=!!item.storagePath||!!(item.fileName&&item.fileUrl);
@@ -60,7 +60,7 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
   return()=>{alive=false};
  },[item.storagePath,item.fileUrl]);
  const refresh=async()=>{setBusy(true);setError('');try{await onPreview(item)}catch(e){setError(e instanceof Error?e.message:'No se pudo actualizar.')}finally{setBusy(false)}};
- const save=async()=>{if(!draft.title.trim()){setError('Escribí un título.');return;}setBusy(true);setError('');setSavedMessage('');try{await onUpdate({...draft,title:draft.title.trim()});setEditing(false);setSavedMessage('Nota y ficha guardadas para toda la organización.')}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.')}finally{setBusy(false)}};
+ const save=async()=>{if(!draft.title.trim()){setError('Escribí un título.');return;}setBusy(true);setError('');setSavedMessage('');try{await onUpdate({...draft,title:draft.title.trim(),tags:tagsInput.split(',').map(s=>s.trim()).filter(Boolean)});setEditing(false);setSavedMessage('Nota y ficha guardadas para toda la organización.')}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.')}finally{setBusy(false)}};
  const copy=async()=>{try{await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setError('No se pudo copiar el enlace.')}};
  return <div className="resource-preview-backdrop" onMouseDown={e=>{if(e.currentTarget===e.target)onClose()}}>
  <section className="resource-preview-dialog" role="dialog" aria-modal="true" aria-label={'Recurso: '+item.title}>
@@ -79,7 +79,7 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
       <label>Título<input className="input" value={draft.title} onChange={e=>setDraft({...draft,title:e.target.value})}/></label>
       <label>Nota del equipo<textarea className="textarea" value={draft.note} onChange={e=>setDraft({...draft,note:e.target.value})}/></label>
       <div className="form-row"><label>Tipo<input className="input" value={draft.category} onChange={e=>setDraft({...draft,category:e.target.value})}/></label><label>Fuente<input className="input" value={draft.source} onChange={e=>setDraft({...draft,source:e.target.value})}/></label></div>
-      <label>Etiquetas<input className="input" value={draft.tags.join(', ')} onChange={e=>setDraft({...draft,tags:e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})}/></label>
+      <label>Etiquetas (separadas por coma)<input className="input" value={tagsInput} onChange={e=>setTagsInput(e.target.value)} placeholder="Ej. música, entrevista, noticias"/></label>
       <div className="resource-buttons"><button className="btn" onClick={()=>setEditing(false)}>Cancelar</button><button className="btn primary" disabled={busy} onClick={()=>{void save()}}>Guardar cambios</button></div>
      </div>:<><h2>{item.title}</h2>{isFile&&<p className="resource-page-description">{item.fileName}{item.fileMime==='application/pdf'?' · PDF':item.fileMime?.includes('word')?' · Word':''} · Sólo los integrantes de este equipo pueden acceder al archivo.</p>}{preview.description&&!isFile&&<p className="resource-page-description">{preview.description}</p>}{item.note&&<div className="resource-team-note"><strong>NOTA DEL EQUIPO</strong><p>{item.note}</p></div>}{item.tags.length>0&&<div className="tags">{item.tags.map(t=><span className="tag" key={t}>#{t}</span>)}</div>}</>}
     {error&&<p className="resource-error" role="alert">{error}</p>}{savedMessage&&<p className="resource-success" role="status">{savedMessage}</p>}

@@ -59,7 +59,7 @@ export function ProductionCoverEditor({title,coverUrl,demo,onUpload,onRemove}:{t
 }
 export function ProductionCreate({demo,currentUserName,onClose,onCreate,onUploadCover}:{demo:boolean;currentUserName:string;onClose:()=>void;onCreate:(data:ProductionCreation)=>Promise<string>;onUploadCover:(id:string,file:File)=>Promise<void>}){
  const [title,setTitle]=useState(''),[type,setType]=useState('Radio'),[date,setDate]=useState(''),[time,setTime]=useState('19:00');
- const [duration,setDuration]=useState(60),[topic,setTopic]=useState(''),[question,setQuestion]=useState(''),[description,setDescription]=useState('');
+ const [duration,setDuration]=useState('60'),[topic,setTopic]=useState(''),[question,setQuestion]=useState(''),[description,setDescription]=useState('');
  const [youtube,setYoutube]=useState(''),[coverFile,setCoverFile]=useState<File|null>(null);
  const [created,setCreated]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const preview=useObjectPreview(coverFile);
@@ -72,14 +72,14 @@ export function ProductionCreate({demo,currentUserName,onClose,onCreate,onUpload
   event.preventDefault();if(busy)return;
   if(!title.trim()&&!created){setError('Escribí un título.');return;}
   if(youtube.trim()&&!parsed){setError('Pegá un enlace válido de YouTube (video o canal en vivo).');return;}
-  if(!Number.isFinite(duration)||duration<1||duration>720){setError('La duración debe estar entre 1 y 720 minutos.');return;}
+  if(!duration.trim()||!Number.isInteger(Number(duration))||Number(duration)<1||Number(duration)>720){setError('La duración debe estar entre 1 y 720 minutos.');return;}
   setBusy(true);setError('');
   let productionId=created;
   try{
    if(!productionId){
     productionId=await onCreate({
      id:'p-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2),title:title.trim(),type,status:'Idea',
-     date,time,duration,completion:5,topic:topic.trim()||title.trim(),question:question.trim(),objective:'Definir objetivo',description,
+     date,time,duration:Number(duration),completion:5,topic:topic.trim()||title.trim(),question:question.trim(),objective:'Definir objetivo',description,
      references:[],hosts:[currentUserName],guests:[],notes:'',members:[],youtubeLiveUrl:parsed?.url||''
     });
     setCreated(productionId);
@@ -95,7 +95,7 @@ export function ProductionCreate({demo,currentUserName,onClose,onCreate,onUpload
    <div className="production-create-fields">
     <div className="production-create-cover"><label className="production-create-cover-pick"><div className="production-create-image">{preview?<img src={preview} alt="Vista previa de la portada elegida"/>:<div><ImagePlus size={32}/><strong>Agregar portada</strong><span>Horizontal 16:9 · JPG, PNG o WebP · hasta 8 MB</span></div>}</div><span className="btn"><Camera size={16}/>{coverFile?'Cambiar imagen':'Elegir imagen'}</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={demo||busy||!!created} onChange={selectFile} aria-label="Seleccionar portada del programa"/></label>{demo&&<small>Para subir portadas, ingresá con tu cuenta.</small>}</div>
     <div className="field"><label htmlFor="new-production-title">Título del programa</label><input id="new-production-title" className="input" required value={title} onChange={e=>setTitle(e.target.value)} placeholder="Ej. Las 3D · El próximo programa" disabled={busy||!!created}/></div>
-    <div className="form-row"><div className="field"><label>Formato<select className="select" value={type} onChange={e=>setType(e.target.value)} disabled={busy||!!created}>{['Radio','Streaming','Podcast','Videopodcast','YouTube / Contenido','Personalizado'].map(format=><option key={format}>{format}</option>)}</select></label></div><div className="field"><label>Duración (minutos)<input className="input" type="number" min={1} max={720} value={duration} onChange={e=>setDuration(Number(e.target.value))} disabled={busy||!!created}/></label></div></div>
+    <div className="form-row"><div className="field"><label>Formato<select className="select" value={type} onChange={e=>setType(e.target.value)} disabled={busy||!!created}>{['Radio','Streaming','Podcast','Videopodcast','YouTube / Contenido','Personalizado'].map(format=><option key={format}>{format}</option>)}</select></label></div><div className="field"><label>Duración (minutos)<input className="input" type="number" min={1} max={720} value={duration} onChange={e=>setDuration(e.target.value)} inputMode="numeric" step={1} disabled={busy||!!created}/></label></div></div>
     <div className="form-row"><div className="field"><label>Fecha<input className="input" type="date" value={date} onChange={e=>setDate(e.target.value)} disabled={busy||!!created}/></label></div><div className="field"><label>Hora<input className="input" type="time" value={time} onChange={e=>setTime(e.target.value)} disabled={busy||!!created}/></label></div></div>
     <div className="field"><label>Tema central<input className="input" value={topic} onChange={e=>setTopic(e.target.value)} placeholder="¿De qué trata esta emisión?" disabled={busy||!!created}/></label></div>
     <div className="field"><label>Pregunta disparadora<input className="input" value={question} onChange={e=>setQuestion(e.target.value)} placeholder="La pregunta que abre el debate" disabled={busy||!!created}/></label></div>
