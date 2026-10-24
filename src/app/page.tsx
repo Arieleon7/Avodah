@@ -310,8 +310,8 @@ export default function Home(){
     try{setCloudError('');await removeProductionCover(workspace.id,productionId);await loadCloud(workspace.id)}
     catch(err){setCloudError(err instanceof Error?err.message:'No se pudo quitar la portada.');throw err}
   };
-  const handleProduction=async(p:Production)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await insertProduction(workspace.id,user.id,p)});else setProductions(x=>[p,...x])};
-  const handleIdea=async(i:Idea)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await insertIdea(workspace.id,user.id,i)});else setIdeas(x=>[i,...x])};
+  const handleProduction=async(p:Production)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{const pid=await insertProduction(workspace.id,user.id,p);await announceChange(currentUserName+' creó “'+p.title+'”.','production',pid,'Nueva producción')});else setProductions(x=>[p,...x])};
+  const handleIdea=async(i:Idea)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{const ideaId=await insertIdea(workspace.id,user.id,i);await announceChange(currentUserName+' propuso “'+i.title+'”.','idea',ideaId,'Nueva idea')});else setIdeas(x=>[i,...x])};
   const handleLibrary=async(i:LibraryItem)=>{
     let item=i;
     if(safeResourceUrl(i.url)&&!i.previewFetchedAt){
@@ -320,13 +320,13 @@ export default function Home(){
       item={...i,...previewFields(preview)};
     }
     if(mode==='cloud'&&user){
-      try{setCloudError('');await insertLibraryItem(workspace.id,user.id,item);await loadCloud(workspace.id)}
+      try{setCloudError('');const resourceId=await insertLibraryItem(workspace.id,user.id,item);await announceChange(currentUserName+' agregó “'+item.title+'” a la biblioteca.','library_item',resourceId,'Nuevo recurso');await loadCloud(workspace.id)}
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el recurso.');throw err}
     }else setLibrary(x=>[item,...x]);
   };
   const handleUploadFile=async(file:File,info:UploadResourceInfo)=>{
     if(mode!=='cloud'||!user)throw new Error('Iniciá sesión con Google para subir archivos.');
-    try{setCloudError('');await uploadLibraryFile(workspace.id,user.id,file,info);await loadCloud(workspace.id)}
+    try{setCloudError('');const resourceId=await uploadLibraryFile(workspace.id,user.id,file,info);await announceChange(currentUserName+' compartió “'+(info.title||file.name)+'”.','library_item',resourceId,'Archivo compartido');await loadCloud(workspace.id)}
     catch(err){setCloudError(err instanceof Error?err.message:'No se pudo subir el archivo.');throw err}
   };
   const handleCreateResourceForProduction=async(i:LibraryItem,productionId:string)=>{
@@ -337,7 +337,7 @@ export default function Home(){
       item={...i,...previewFields(preview)};
     }
     if(mode==='cloud'&&user){
-      try{setCloudError('');const resourceId=await insertLibraryItem(workspace.id,user.id,item);await linkResourceToProduction(productionId,resourceId,user.id);await loadCloud(workspace.id)}
+      try{setCloudError('');const resourceId=await insertLibraryItem(workspace.id,user.id,item);await linkResourceToProduction(productionId,resourceId,user.id);await announceChange(currentUserName+' vinculó un recurso al programa.','production',productionId,'Recurso vinculado');await loadCloud(workspace.id)}
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo vincular el recurso.');throw err}
     }else {
       setLibrary(all=>[item,...all]);
@@ -346,7 +346,7 @@ export default function Home(){
   };
   const handleUploadResourceForProduction=async(file:File,info:UploadResourceInfo,productionId:string)=>{
     if(mode!=='cloud'||!user)throw new Error('Iniciá sesión para compartir archivos.');
-    try{setCloudError('');const resourceId=await uploadLibraryFile(workspace.id,user.id,file,info);await linkResourceToProduction(productionId,resourceId,user.id);await loadCloud(workspace.id)}
+    try{setCloudError('');const resourceId=await uploadLibraryFile(workspace.id,user.id,file,info);await linkResourceToProduction(productionId,resourceId,user.id);await announceChange(currentUserName+' vinculó un recurso al programa.','production',productionId,'Recurso vinculado');await loadCloud(workspace.id)}
     catch(err){setCloudError(err instanceof Error?err.message:'No se pudo subir o vincular el archivo.');throw err}
   };
   const handlePreviewResource=async(i:LibraryItem)=>{
@@ -359,15 +359,15 @@ export default function Home(){
   };
   const handleUpdateLibrary=async(i:LibraryItem)=>{
     if(mode==='cloud'){
-      try{setCloudError('');await cloudUpdateLibraryItem(i.id,{title:i.title,note:i.note,category:i.category,source:i.source,tags:i.tags});await loadCloud(workspace.id)}
+      try{setCloudError('');await cloudUpdateLibraryItem(i.id,{title:i.title,note:i.note,category:i.category,source:i.source,tags:i.tags});await announceChange(currentUserName+' editó “'+i.title+'”.','library_item',i.id,'Recurso actualizado');await loadCloud(workspace.id)}
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo editar el recurso.');throw err}
     }else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...i}:item));
   };
   const handleTask=async(t:Task)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{const taskId=await insertTask(workspace.id,user.id,t,members);await announceChange(currentUserName+' agregó la tarea “'+t.title+'”.','task',taskId,'Nueva tarea')});else setTasks(x=>[t,...x])};
   const handleReactIdea=async(i:Idea)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await cloudReactIdea(i.id,user.id)});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,reactions:q.reactions+1}:q))};
-  const handleCommentIdea=async(i:Idea,text:string)=>{if(!text.trim())return;if(mode==='cloud'&&user)await cloudAction(async()=>{await insertIdeaComment(i.id,user.id,text.trim())});else setIdeas(all=>all.map(x=>x.id===i.id?{...x,comments:x.comments+1,commentItems:[...(x.commentItems??[]),{id:id('ic'),author:currentUserName,text:text.trim(),time:'Ahora'}]}:x))};
-  const handleArchiveIdea=async(i:Idea)=>{if(mode==='cloud')await cloudAction(async()=>{await cloudArchiveIdea(i.id)});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,archived:true}:q))};
-  const handleConvertIdea=async(i:Idea)=>{const p:Production={id:id('p'),title:i.title,type:'Personalizado',status:'Idea',date:'2026-10-10',time:'19:00',duration:60,completion:10,topic:i.title,question:i.description,objective:'Definir objetivo',description:i.description,references:[],hosts:[currentUserName],guests:[],notes:'Creada desde una idea.',members:user?[user.id]:['m1']};if(mode==='cloud'&&user)await cloudAction(async()=>{await insertProduction(workspace.id,user.id,p);await cloudArchiveIdea(i.id)});else{setProductions(x=>[p,...x]);setIdeas(x=>x.map(q=>q.id===i.id?{...q,archived:true}:q))}};
+  const handleCommentIdea=async(i:Idea,text:string)=>{if(!text.trim())return;if(mode==='cloud'&&user)await cloudAction(async()=>{await insertIdeaComment(i.id,user.id,text.trim());await announceChange(currentUserName+' comentó “'+i.title+'”.','idea',i.id,'Nuevo comentario')});else setIdeas(all=>all.map(x=>x.id===i.id?{...x,comments:x.comments+1,commentItems:[...(x.commentItems??[]),{id:id('ic'),author:currentUserName,text:text.trim(),time:'Ahora'}]}:x))};
+  const handleArchiveIdea=async(i:Idea)=>{if(mode==='cloud')await cloudAction(async()=>{await cloudArchiveIdea(i.id);await announceChange(currentUserName+' archivó “'+i.title+'”.','idea',i.id,'Idea archivada')});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,archived:true}:q))};
+  const handleConvertIdea=async(i:Idea)=>{const p:Production={id:id('p'),title:i.title,type:'Personalizado',status:'Idea',date:'2026-10-10',time:'19:00',duration:60,completion:10,topic:i.title,question:i.description,objective:'Definir objetivo',description:i.description,references:[],hosts:[currentUserName],guests:[],notes:'Creada desde una idea.',members:user?[user.id]:['m1']};if(mode==='cloud'&&user)await cloudAction(async()=>{const pid=await insertProduction(workspace.id,user.id,p);await cloudArchiveIdea(i.id);await announceChange(currentUserName+' convirtió “'+i.title+'” en programa.','production',pid,'Idea convertida')});else{setProductions(x=>[p,...x]);setIdeas(x=>x.map(q=>q.id===i.id?{...q,archived:true}:q))}};
   const handleTaskStatus=async(t:Task,status:TaskStatus)=>{if(mode==='cloud')await cloudAction(async()=>{await updateTaskStatus(t.id,status);await announceChange(currentUserName+' cambió “'+t.title+'” a '+status+'.','task',t.id,'Tarea actualizada')});else setTasks(all=>all.map(x=>x.id===t.id?{...x,status}:x))};
   const handleSend=async(channelId:string,text:string,file?:File)=>{if(mode==='cloud'&&user){const dbId=channels.find(c=>c.id===channelId)?.dbId??channelId;await cloudAction(async()=>{const messageId=await insertMessage(dbId,user.id,text||file?.name||'Archivo adjunto');if(file)await uploadMessageAttachment(workspace.id,messageId,file)})}else setMessages(x=>[...x,{id:id('msg'),channel:channelId,author:currentUserName,text:text||file?.name||'Archivo adjunto',time:new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),attachments:file?[{id:id('att'),name:file.name,mimeType:file.type,size:file.size,url:URL.createObjectURL(file)}]:[]}])};
   const handleAddBlock=async(b:Block)=>{if(mode==='cloud'){try{setCloudError('');const blockId=await insertBlock(b.productionId,b,members);await announceChange(currentUserName+' agregó “'+b.title+'” al Guión.','rundown_block',blockId,'Guión actualizado');await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar el bloque.');throw err}}else setBlocks(x=>[...x,b])};
@@ -391,7 +391,7 @@ export default function Home(){
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudieron guardar los cambios.');throw err}
     }else setProductions(all=>all.map(x=>x.id===p.id?updated:x));
   };
-  const handleDeleteProduction=async(p:Production)=>{if(!window.confirm(`¿Eliminar \"${p.title}\"? Se eliminarán también su guión, tareas y chat asociados.`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteProduction(p.id)});else{setProductions(all=>all.filter(x=>x.id!==p.id));setBlocks(all=>all.filter(x=>x.productionId!==p.id));setTasks(all=>all.filter(x=>x.productionId!==p.id));setMessages(all=>all.filter(x=>x.channel!==p.id))}setSelectedProduction(null)};
+  const handleDeleteProduction=async(p:Production)=>{if(!window.confirm(`¿Eliminar \"${p.title}\"? Se eliminarán también su guión, tareas y chat asociados.`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteProduction(p.id);await announceChange(currentUserName+' eliminó “'+p.title+'”.','production',null,'Producción eliminada')});else{setProductions(all=>all.filter(x=>x.id!==p.id));setBlocks(all=>all.filter(x=>x.productionId!==p.id));setTasks(all=>all.filter(x=>x.productionId!==p.id));setMessages(all=>all.filter(x=>x.channel!==p.id))}setSelectedProduction(null)};
   const handleSaveNotes=async(pid:string,notes:string):Promise<string>=>{
     if(mode==='cloud'){
       try{
@@ -412,7 +412,7 @@ export default function Home(){
     if(mode==='cloud'&&user){
       try{
         setCloudError('');
-        const created=await insertProductionNote(pid,user.id,note);
+        const created=await insertProductionNote(pid,user.id,note);await announceChange(currentUserName+' agregó la nota “'+note.title+'”.','production',pid,'Nueva nota');
         await loadCloud(workspace.id);
         return created.id as string;
       }catch(err){setCloudError(err instanceof Error?err.message:'No se pudo crear la nota.');throw err}
@@ -423,7 +423,7 @@ export default function Home(){
   };
   const handleUpdateProductionNote=async(noteId:string,note:{title:string;content:string})=>{
     if(mode==='cloud'){
-      try{setCloudError('');await updateProductionNote(noteId,note);await loadCloud(workspace.id)}
+      try{setCloudError('');await updateProductionNote(noteId,note);await announceChange(currentUserName+' actualizó una nota: “'+note.title+'”.','production',null,'Nota actualizada');await loadCloud(workspace.id)}
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo guardar la nota.');throw err}
     }else setProductionNotes(all=>all.map(n=>n.id===noteId?{...n,title:note.title,content:note.content,updatedAt:new Date().toISOString()}:n));
   };
@@ -434,11 +434,11 @@ export default function Home(){
     }else setProductionNotes(all=>all.filter(n=>n.id!==noteId));
   };
   const handleEditBlock=async(b:Block)=>{if(mode==='cloud'){try{setCloudError('');await updateBlock(b.id,b,members);await announceChange(currentUserName+' actualizó el bloque “'+b.title+'”.','rundown_block',b.id,'Guión actualizado');await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo editar el bloque.');throw err}}else setBlocks(all=>all.map(x=>x.id===b.id?b:x))};
-  const handleDeleteBlock=async(b:Block)=>{if(!window.confirm(`¿Eliminar el bloque \"${b.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteBlock(b.id)});else setBlocks(all=>all.filter(x=>x.id!==b.id))};
-  const handleLinkResource=async(pid:string,itemId:string)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await linkResourceToProduction(pid,itemId,user.id)});else setProductions(all=>all.map(x=>x.id===pid?{...x,resourceIds:Array.from(new Set([...(x.resourceIds??[]),itemId]))}:x))};
-  const handleUnlinkResource=async(pid:string,itemId:string)=>{if(mode==='cloud')await cloudAction(async()=>{await unlinkResourceFromProduction(pid,itemId)});else setProductions(all=>all.map(x=>x.id===pid?{...x,resourceIds:(x.resourceIds??[]).filter(id=>id!==itemId)}:x))};
+  const handleDeleteBlock=async(b:Block)=>{if(!window.confirm(`¿Eliminar el bloque \"${b.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteBlock(b.id);await announceChange(currentUserName+' eliminó “'+b.title+'” del guión.','production',b.productionId,'Guión actualizado')});else setBlocks(all=>all.filter(x=>x.id!==b.id))};
+  const handleLinkResource=async(pid:string,itemId:string)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await linkResourceToProduction(pid,itemId,user.id);await announceChange(currentUserName+' vinculó un recurso al programa.','production',pid,'Recurso vinculado')});else setProductions(all=>all.map(x=>x.id===pid?{...x,resourceIds:Array.from(new Set([...(x.resourceIds??[]),itemId]))}:x))};
+  const handleUnlinkResource=async(pid:string,itemId:string)=>{if(mode==='cloud')await cloudAction(async()=>{await unlinkResourceFromProduction(pid,itemId);await announceChange(currentUserName+' desvinculó un recurso del programa.','production',pid,'Recurso desvinculado')});else setProductions(all=>all.map(x=>x.id===pid?{...x,resourceIds:(x.resourceIds??[]).filter(id=>id!==itemId)}:x))};
   const handleArchiveLibrary=async(item:LibraryItem)=>{if(!window.confirm(`¿Archivar \"${item.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteLibraryItem(item.id)});else setLibrary(all=>all.filter(x=>x.id!==item.id))};
-  const handleDeleteTask=async(t:Task)=>{if(!window.confirm(`¿Eliminar la tarea \"${t.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteTask(t.id)});else setTasks(all=>all.filter(x=>x.id!==t.id))};
+  const handleDeleteTask=async(t:Task)=>{if(!window.confirm(`¿Eliminar la tarea \"${t.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteTask(t.id);await announceChange(currentUserName+' eliminó la tarea “'+t.title+'”.','task',null,'Tarea eliminada')});else setTasks(all=>all.filter(x=>x.id!==t.id))};
   const handleMemberRole=async(memberId:string,role:string)=>{
     if(memberId===workspace.ownerId){
       setCloudError('El propietario de la comunidad conserva sus permisos y no puede cambiar de rol.');
@@ -470,11 +470,11 @@ export default function Home(){
   const handleCreateEvent=()=>setCalendarCreateOpen(true);
   const handleSaveCalendar=async(draft:CalendarDraft)=>{
     const startsAt=new Date(`${draft.date}T${draft.time}:00-03:00`).toISOString();
-    if(mode==='cloud'&&user){try{setCloudError('');await insertCalendarEvent(workspace.id,user.id,{title:draft.title,kind:draft.kind,startsAt,notes:draft.notes});await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo crear el evento.');throw err}}
+    if(mode==='cloud'&&user){try{setCloudError('');await insertCalendarEvent(workspace.id,user.id,{title:draft.title,kind:draft.kind,startsAt,notes:draft.notes});await announceChange(currentUserName+' agendó “'+draft.title+'”.','calendar_event',null,'Nuevo evento');await loadCloud(workspace.id)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo crear el evento.');throw err}}
     else setCalendarEvents(all=>[...all,{id:id('ev'),title:draft.title,kind:draft.kind,startsAt,notes:draft.notes}]);
   };
-    const handleDeleteEvent=async(event:CalendarEvent)=>{if(!window.confirm(`¿Eliminar el evento \"${event.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteCalendarEvent(event.id)});else setCalendarEvents(all=>all.filter(x=>x.id!==event.id))};
-  const handleSaveWorkspace=async(w:Workspace)=>{setWorkspace(w);if(mode==='cloud')await cloudAction(async()=>{await updateWorkspace(w.id,w)});else alert('Configuración guardada en este dispositivo.')};
+    const handleDeleteEvent=async(event:CalendarEvent)=>{if(!window.confirm(`¿Eliminar el evento \"${event.title}\"?`))return;if(mode==='cloud')await cloudAction(async()=>{await deleteCalendarEvent(event.id);await announceChange(currentUserName+' eliminó el evento “'+event.title+'”.','calendar_event',null,'Evento eliminado')});else setCalendarEvents(all=>all.filter(x=>x.id!==event.id))};
+  const handleSaveWorkspace=async(w:Workspace)=>{setWorkspace(w);if(mode==='cloud')await cloudAction(async()=>{await updateWorkspace(w.id,w);await announceChange(currentUserName+' actualizó la configuración del equipo.','workspace',w.id,'Equipo actualizado')});else alert('Configuración guardada en este dispositivo.')};
   const handleInvite=async()=>{if(mode!=='cloud'||!user)return;try{const invite=await createWorkspaceInvite(workspace.id,user.id);const link=`${window.location.origin}${window.location.pathname}?invite=${invite.code}`;try{await navigator.clipboard.writeText(link)}catch{}alert(`Invitación creada y copiada:\n\n${link}\n\nVence en 7 días.`)}catch(err){setCloudError(err instanceof Error?err.message:'No se pudo crear la invitación.')}};
   const handleCreateWorkspace=()=>{if(mode==='cloud'&&user)setWorkspaceCreateOpen(true)};
   const handleCreateWorkspaceFromEditor=async(draft:WorkspaceDraft)=>{
