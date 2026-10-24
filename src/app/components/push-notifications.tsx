@@ -35,8 +35,8 @@ export function PushNotificationsCard({workspaceId,workspaceIds,userId,cloud,com
 
  const refresh=useCallback(async()=>{
   if(!cloud||!userId){setState('unsupported');return;}
-  if(!browserSupported()){setState('unsupported');return;}
   if(isIOS()&&!isStandalone()){setState('ios-install');return;}
+  if(!browserSupported()){setState('unsupported');return;}
   if(Notification.permission==='denied'){setState('denied');return;}
   if(Notification.permission!=='granted'){setState('inactive');return;}
   try{
