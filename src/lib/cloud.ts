@@ -300,6 +300,28 @@ export async function deletePushSubscription(workspaceId:string,userId:string,en
     .eq('workspace_id',workspaceId).eq('user_id',userId).eq('endpoint',endpoint);
   if(error)throw error;
 }
+/** Connect an already permissioned browser to all workspaces the user belongs to.
+ * Never opens a permission prompt: that requires an explicit tap from the user. */
+export async function syncEnabledPushSubscriptions(workspaceIds:string[],userId:string,subscription:PushSubscription,prefs:PushPreferences={notifyChat:true,notifyUpdates:true}){
+  for(const wid of new Set(workspaceIds.filter(Boolean))){
+    const existing=await getPushSubscription(wid,userId,subscription.endpoint);
+    if(!existing)await upsertPushSubscription(wid,userId,subscription,prefs);
+  }
+}
+export async function testPushDelivery(workspaceId:string,endpoint:string){
+  const {data:{session},error}=await supabase.auth.getSession();
+  if(error||!session?.access_token)throw new Error('Iniciá sesión para probar las notificaciones.');
+  const response=await fetch('/api/push/test',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`},
+    body:JSON.stringify({workspaceId,endpoint}),
+    cache:'no-store'
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(typeof result.error==='string'?result.error:'No se pudo enviar la notificación de prueba.');
+  return result as {ok:boolean};
+}
+
 export async function logWorkspaceActivity(workspaceId:string,userId:string,action:string,targetType:string,targetId:string|null,message:string,title?:string){
   const {error}=await supabase.from('activity_events').insert({
     workspace_id:workspaceId,actor_id:userId,action,target_type:targetType,target_id:targetId,
