@@ -42,7 +42,24 @@ export async function signInWithGoogle() {
   });
 }
 
-export async function signOut() { return supabase.auth.signOut(); }
+export async function signOut() {
+  // A logged-out phone must stop receiving notifications for the previous account.
+  // Removing the database subscription before clearing the session also avoids
+  // pushing private team content to a shared device after account changes.
+  try{
+    const {data:{user}}=await supabase.auth.getUser();
+    if(user&&typeof navigator!=='undefined'&&'serviceWorker' in navigator){
+      const registration=await navigator.serviceWorker.getRegistration('/');
+      const subscription=await registration?.pushManager.getSubscription();
+      if(subscription){
+        const {error}=await supabase.from('push_subscriptions')
+          .delete().eq('user_id',user.id).eq('endpoint',subscription.endpoint);
+        if(!error)await subscription.unsubscribe();
+      }
+    }
+  }catch{/* Do not prevent the account from signing out if push is unavailable. */}
+  return supabase.auth.signOut();
+}
 
 export async function listWorkspaces() {
   const { data, error } = await supabase.from('workspaces').select('*').order('created_at', { ascending: true });
