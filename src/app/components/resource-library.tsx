@@ -56,6 +56,47 @@ export function ResourceMedia({item}:{item:ResourceItem}){
  </div>;
 }
 
+function InstagramPostEmbed({url,title}:{url:string;title:string}){
+ const parsed=safeResourceUrl(url);
+ let canonical='';
+ try{
+   const u=new URL(parsed);
+   const host=u.hostname.toLowerCase().replace(/^www\./,'');
+   const m=u.pathname.match(/^\/(p|reel|tv)\/([\w-]{6,35})(?:\/|$)/);
+   if((host==='instagram.com'||host==='instagr.am')&&m)canonical='https://www.instagram.com/'+m[1]+'/'+m[2]+'/';
+ }catch{}
+ useEffect(()=>{
+   if(!canonical)return;
+   let active=true;
+   const process=()=>{
+     if(!active)return;
+     const api=(window as Window&{instgrm?:{Embeds?:{process?:()=>void}}}).instgrm;
+     api?.Embeds?.process?.();
+   };
+   const existing=document.querySelector<HTMLScriptElement>('script[data-avodah-instagram]');
+   if(existing){
+     if(existing.dataset.loaded==='true')process();
+     else existing.addEventListener('load',process,{once:true});
+   }else{
+     const script=document.createElement('script');
+     script.src='https://www.instagram.com/embed.js';
+     script.async=true;script.dataset.avodahInstagram='true';
+     script.addEventListener('load',()=>{script.dataset.loaded='true';process()},{once:true});
+     document.body.appendChild(script);
+   }
+   return()=>{active=false;existing?.removeEventListener('load',process)};
+ },[canonical]);
+ if(!canonical)return <div className="resource-instagram-unavailable"><Instagram size={28}/><p>Este enlace no corresponde a una publicación o Reel que se pueda insertar.</p><a href={parsed} target="_blank" rel="noopener noreferrer">Abrir en Instagram</a></div>;
+ return <section className="resource-instagram-panel">
+   <div className="resource-instagram-inner">
+    <blockquote className="instagram-media" data-instgrm-permalink={canonical} style={{margin:'0 auto',background:'#fff',borderRadius:10,minWidth:270,width:'100%',maxWidth:540}}>
+     <a href={canonical} target="_blank" rel="noopener noreferrer">Ver publicación en Instagram: {title}</a>
+    </blockquote>
+   </div>
+   <p>Las publicaciones públicas se cargan desde Instagram. Las privadas o con inserción desactivada solo pueden abrirse en la plataforma.</p>
+ </section>;
+}
+
 export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,onLink,onUnlink}:{item:ResourceItem;onClose:()=>void;onPreview:(i:ResourceItem)=>void|Promise<ResourcePreview|void>;onUpdate:(i:ResourceItem)=>void|Promise<void>;productions?:ResourceProduction[];onLink?:(pid:string,id:string)=>void|Promise<void>;onUnlink?:()=>void}){
  const [editing,setEditing]=useState(false),[draft,setDraft]=useState(item),[tagsInput,setTagsInput]=useState(item.tags.join(', ')),[busy,setBusy]=useState(false),[error,setError]=useState(''),[savedMessage,setSavedMessage]=useState(''),[copied,setCopied]=useState(false),[target,setTarget]=useState('');
  useEffect(()=>{if(!editing){setDraft(item);setTagsInput(item.tags.join(', '))}},[item,editing]);
@@ -84,7 +125,7 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
      freshFileUrl&&item.fileMime?.startsWith('video/')?<video src={freshFileUrl} controls playsInline preload="metadata">El navegador no admite este video.</video>:
      freshFileUrl&&item.fileMime==='application/pdf'?<iframe className="resource-pdf" src={freshFileUrl+'#toolbar=1'} title={'Vista previa del PDF '+item.title}/>:
      <ResourceMedia item={{...item,fileUrl:freshFileUrl}}/>}
-   </div>:embed?<div className={'resource-embed'+(preview.kind==='instagram'||preview.kind==='tiktok'?' social '+preview.kind:'')}><iframe src={embed} title={'Vista previa de '+item.title} loading="eager" allow="autoplay; encrypted-media; picture-in-picture; fullscreen; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/><div className="resource-embed-footer">Vista integrada de {typeNames[preview.kind]||preview.site}. Si el autor restringió la inserción, abrí el contenido original.</div></div>:<div className="resource-web-preview">
+   </div>:preview.kind==='instagram'?<InstagramPostEmbed url={url} title={item.title}/>:embed?<div className={'resource-embed'+(preview.kind==='instagram'||preview.kind==='tiktok'?' social '+preview.kind:'')}><iframe src={embed} title={'Vista previa de '+item.title} loading="eager" allow="autoplay; encrypted-media; picture-in-picture; fullscreen; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/><div className="resource-embed-footer">Vista integrada de {typeNames[preview.kind]||preview.site}. Si el autor restringió la inserción, abrí el contenido original.</div></div>:<div className="resource-web-preview">
     <ResourceMedia item={item}/>
     <div className="resource-web-summary"><span>{preview.site||resourceHost(url)}</span><strong>{preview.title||item.title}</strong><p>{preview.description||'Este sitio no proporciona una descripción pública. El recurso sigue disponible en su página original.'}</p>
     {url&&<a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/> Abrir recurso original</a>}</div>
