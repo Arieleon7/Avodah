@@ -9,7 +9,7 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const MAX_BYTES=360_000;
 const MAX_TOTAL_MS=12_000;
-const userAgent='AVODAH-LinkPreview/1.0 (+https://avodah-six.vercel.app)';
+const userAgent='Mozilla/5.0 (compatible; AVODAHPreview/2.0; +https://avodah-six.vercel.app)';
 
 function isPublicIp(ip:string):boolean{
   if(isIP(ip)===4){
@@ -59,7 +59,7 @@ async function readText(u:URL,deadline:number):Promise<{body:string;type:string;
     const request=https.request(u,{
       method:'GET',
       timeout:Math.min(left,5000),
-      headers:{'User-Agent':userAgent,'Accept':'text/html,application/json;q=.9,text/plain;q=.5,*/*;q=.1'},
+      headers:{'User-Agent':userAgent,'Accept':'text/html,application/xhtml+xml,application/json;q=.9,text/plain;q=.5,*/*;q=.1','Accept-Language':'es-AR,es;q=0.9,en;q=0.6'},
       lookup:((_hostname:string,_opts:unknown,cb:(e:Error|null,address:string,family:number)=>void)=>cb(null,chosen.address,chosen.family)) as typeof import('node:dns').lookup
     },response=>{
       const status=response.statusCode||0;
@@ -132,6 +132,7 @@ export async function POST(request:NextRequest){
     const deadline=Date.now()+MAX_TOTAL_MS;
     const host=target.hostname.toLowerCase().replace(/^www\./,'');
     let fetched:ResourcePreview={...fallback};
+    let complete=false;
     try{
       if(fallback.kind==='youtube'||fallback.kind==='spotify'){
         const providerUrl=fallback.kind==='youtube'
@@ -140,8 +141,10 @@ export async function POST(request:NextRequest){
         const resource=await retrieve(providerUrl,deadline);
         const json=JSON.parse(resource.body) as Record<string,unknown>;
         fetched={...fallback,title:String(json.title||fallback.title).slice(0,200),description:typeof json.author_name==='string'?json.author_name.slice(0,450):'',image:publicImage(String(json.thumbnail_url||fallback.image)),site:fallback.site};
+        complete=typeof json.title==='string'&&json.title.trim().length>0;
       }else if(fallback.kind==='image'){
-        fetched={...fallback,title:decodeURIComponent(target.pathname.split('/').pop()||'Imagen'),image:publicImage(target.toString())};
+        fetched={...fallback,title:decodeURIComponent(target.pathname.split('/').pop()||'Imagen').slice(0,200),image:publicImage(target.toString())};
+        complete=true;
       }else{
         const resource=await retrieve(target,deadline);
         const html=resource.body;
@@ -152,6 +155,7 @@ export async function POST(request:NextRequest){
         const source=meta(html,['og:site_name','application-name']);
         const kind:ResourceKind=fallback.kind==='document'?'document':typ==='article'?'article':fallback.kind;
         fetched={title:ttl||fallback.title||host,description:desc,image:publicImage(img),site:source||fallback.site,kind};
+        complete=!!(ttl||desc||img);
       }
       if(fetched.image){
         try{await publicIp(new URL(fetched.image).hostname);}catch{fetched.image='';}
@@ -159,8 +163,11 @@ export async function POST(request:NextRequest){
     }catch{
       // Unsupported, private or bot-protected sites retain the provider/type fallback.
       fetched={...fallback,title:fallback.title||host};
+      complete=false;
     }
-    fetched.fetchedAt=new Date().toISOString();
+    // Do not mark a generic placeholder as a successful preview. It should be retried later.
+    if(complete)fetched.fetchedAt=new Date().toISOString();
+    else fetched.limited=true;
     return NextResponse.json(fetched,{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
   }catch{
     return NextResponse.json({error:'No se pudo obtener la vista previa.'},{status:400});

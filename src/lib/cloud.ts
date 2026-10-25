@@ -220,7 +220,7 @@ export async function updateLibraryPreview(itemId:string,preview:{
 }) {
   const {error}=await supabase.from('library_items').update({
     preview_title:preview.title,preview_description:preview.description,preview_image:preview.image,
-    preview_site:preview.site,preview_kind:preview.kind,preview_fetched_at:preview.fetchedAt||new Date().toISOString()
+    preview_site:preview.site,preview_kind:preview.kind,preview_fetched_at:preview.fetchedAt||null
   }).eq('id',itemId);
   if(error)throw error;
 }

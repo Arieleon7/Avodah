@@ -13,7 +13,7 @@ export type ResourceItem={
 export type ResourceProduction={id:string;title:string;resourceIds?:string[]};
 
 export function previewFields(p:ResourcePreview){
- return {previewTitle:p.title||'',previewDescription:p.description||'',previewImage:p.image||'',previewSite:p.site||'',previewKind:p.kind||'link',previewFetchedAt:p.fetchedAt||new Date().toISOString()};
+ return {previewTitle:p.title||'',previewDescription:p.description||'',previewImage:p.image||'',previewSite:p.site||'',previewKind:p.kind||'link',previewFetchedAt:p.fetchedAt||undefined};
 }
 export function resourceInfo(item:ResourceItem):ResourcePreview{
  const fallback=guessResourcePreview(item.url);
@@ -60,7 +60,7 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
   else setFreshFileUrl(item.fileUrl||'');
   return()=>{alive=false};
  },[item.storagePath,item.fileUrl]);
- const refresh=async()=>{setBusy(true);setError('');try{await onPreview(item)}catch(e){setError(e instanceof Error?e.message:'No se pudo actualizar.')}finally{setBusy(false)}};
+ const refresh=async()=>{setBusy(true);setError('');setSavedMessage('');try{await onPreview(item);setSavedMessage('Vista previa actualizada.')}catch(e){setError(e instanceof Error?e.message:'El sitio no permite recuperar una vista previa. Podés abrir el enlace original.')}finally{setBusy(false)}};
  const save=async()=>{if(!draft.title.trim()){setError('Escribí un título.');return;}setBusy(true);setError('');setSavedMessage('');try{await onUpdate({...draft,title:draft.title.trim(),tags:tagsInput.split(',').map(s=>s.trim()).filter(Boolean)});setEditing(false);setSavedMessage('Nota y ficha guardadas para toda la organización.')}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.')}finally{setBusy(false)}};
  const copy=async()=>{try{await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setError('No se pudo copiar el enlace.')}};
  return <div className="resource-preview-backdrop" onMouseDown={e=>{if(e.currentTarget===e.target)onClose()}}>
@@ -106,7 +106,7 @@ export function ResourceLibrary({items,productions,folders=[],onFolderCreate,onF
  const visibleMedia=media.filter(i=>(mediaFilter==='Todos'||mediaKind(i)===mediaFilter)&&matches(i)&&inFolder(i));
  const imageCount=media.filter(i=>mediaKind(i)==='Imagen').length,audioCount=media.filter(i=>mediaKind(i)==='Audio').length,videoCount=media.filter(i=>mediaKind(i)==='Video').length;
  const mediaBytes=media.reduce((sum,item)=>sum+(item.fileSize||0),0);
- useEffect(()=>{items.filter(i=>safeResourceUrl(i.url)&&!i.previewFetchedAt&&!attempted.current.has(i.id)).slice(0,3).forEach(item=>{attempted.current.add(item.id);void Promise.resolve(onPreview(item)).catch(()=>{})})},[items,onPreview]);
+ useEffect(()=>{items.filter(i=>safeResourceUrl(i.url)&&(!i.previewFetchedAt||(!i.previewImage&&!i.previewDescription&&[resourceHost(i.url),'Video de YouTube','Contenido de Spotify','Publicación de Instagram','Publicación de Facebook','Publicación de X','Video de TikTok'].includes(i.previewTitle||'')))&&!attempted.current.has(i.id)).slice(0,3).forEach(item=>{attempted.current.add(item.id);void Promise.resolve(onPreview(item)).catch(()=>{})})},[items,onPreview]);
  const linker=(item:ResourceItem)=><div className="resource-linker"><select className="select" value={targets[item.id]||''} onChange={e=>setTargets(t=>({...t,[item.id]:e.target.value}))} aria-label={'Asignar '+item.title+' a producción'}><option value="">Agregar a producción…</option>{productions.filter(p=>!(p.resourceIds??[]).includes(item.id)).map(p=><option key={p.id} value={p.id}>{p.title}</option>)}</select><button className="btn sm primary" disabled={!targets[item.id]} onClick={()=>{const pid=targets[item.id];if(pid){void onLink(pid,item.id);setTargets(t=>({...t,[item.id]:''}))}}}>Agregar</button></div>;
  return <><div className="topbar"><div><h1>Biblioteca</h1><p>Recursos, documentos y multimedia compartidos por toda la organización.</p></div><div className="actions">{section==='media'?<button className="btn primary" onClick={onNewMedia}><UploadCloud size={16}/> Subir multimedia</button>:<><button className="btn" onClick={onNewFile}><UploadCloud size={16}/> Subir archivo</button><button className="btn primary" onClick={onNew}><Plus size={16}/> Guardar enlace</button></>}</div></div>
   <nav className="library-sections" aria-label="Secciones de Biblioteca">
@@ -163,7 +163,7 @@ function ResourceLinkCreate({demo,close,onLibrary,onSwitchToFile}:{demo:boolean;
     if(!manualCategory)setCategory(({youtube:'Video',spotify:'Canción',document:'Documento',image:'Imagen',article:'Noticia',link:'Link'} as Record<string,string>)[p.kind]||'Link');
    }catch(e){
     if(sequence.current!==id)return;
-    const p:ResourcePreview={...guessResourcePreview(valid),fetchedAt:new Date().toISOString()};
+    const p:ResourcePreview={...guessResourcePreview(valid),limited:true};
     setPreview(p);if(!manualTitle&&p.title)setTitle(p.title);setSource(s=>s||p.site);
     setError(e instanceof Error?e.message:'No se pudo recuperar la vista previa. Podés guardar el enlace.');
    }finally{if(sequence.current===id)setFetching(false)}
@@ -181,6 +181,7 @@ function ResourceLinkCreate({demo,close,onLibrary,onSwitchToFile}:{demo:boolean;
   <div className="resource-save-tabs"><button type="button" className="active"><Globe2 size={16}/> Pegar enlace</button><button type="button" onClick={onSwitchToFile}><UploadCloud size={16}/> Subir archivo</button></div>
   <label className="field">Enlace (opcional si es una nota)<input className="input" type="url" value={url} onChange={e=>{setUrl(e.target.value);setPreview(null);setSource('')}} placeholder="https://youtu.be/…"/></label>
   {fetching&&<div className="resource-fetching" role="status"><RefreshCw className="spinning" size={16}/> Recuperando vista previa…</div>}
+  {preview?.limited&&<div className="resource-preview-limited">El sitio no permite obtener todos los datos automáticamente. Podés completar el título y abrir el original cuando quieras.</div>}
   {preview&&<div className="resource-draft-preview"><ResourceMedia item={{id:'draft',title:title||preview.title||'Nuevo recurso',url,note,category,source:source||preview.site,tags:[],...previewFields(preview)}}/><div><strong>{preview.title||title||'Vista previa'}</strong><small>{preview.site||resourceHost(url)}</small>{preview.description&&<p>{preview.description}</p>}</div></div>}
   <label className="field">Título<input className="input" required value={title} onChange={e=>{setTitle(e.target.value);setManualTitle(true)}} placeholder="Nombre del recurso"/></label>
   <label className="field">Notas del equipo<textarea className="textarea" value={note} onChange={e=>setNote(e.target.value)} placeholder="Por qué sirve para el programa…"/></label>

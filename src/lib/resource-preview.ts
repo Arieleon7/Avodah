@@ -6,6 +6,7 @@ export type ResourcePreview={
   site:string;
   kind:ResourceKind;
   fetchedAt?:string;
+  limited?:boolean;
 };
 const safelyParse=(value:string):URL|null=>{
   try {const u=new URL(value);return u.protocol==='https:'||u.protocol==='http:'?u:null;}catch{return null;}
@@ -14,9 +15,14 @@ export function guessResourcePreview(value:string):ResourcePreview{
   const u=safelyParse(value);
   if(!u)return {title:'',description:'',image:'',site:'Enlace',kind:'link'};
   const host=u.hostname.toLowerCase().replace(/^www\./,'');
-  const videoId=host==='youtu.be'?u.pathname.split('/')[1]:host.endsWith('youtube.com')?u.searchParams.get('v')||u.pathname.match(/^\/shorts\/([^/?#]+)/)?.[1]||u.pathname.match(/^\/embed\/([^/?#]+)/)?.[1]:null;
+  const youtube=host==='youtube.com'||host.endsWith('.youtube.com')||host==='youtube-nocookie.com';
+  const videoId=host==='youtu.be'?u.pathname.split('/')[1]:youtube?u.searchParams.get('v')||u.pathname.match(/^\/(?:shorts|embed|live)\/([^/?#]+)/)?.[1]:null;
   if(videoId&&/^[\w-]{11}$/.test(videoId))return {title:'Video de YouTube',description:'',image:'https://i.ytimg.com/vi/'+videoId+'/hqdefault.jpg',site:'YouTube',kind:'youtube'};
   if(host==='open.spotify.com'&&/^\/(?:intl-[\w-]+\/)?(?:track|album|playlist|show|episode|artist)\//.test(u.pathname))return {title:'Contenido de Spotify',description:'',image:'',site:'Spotify',kind:'spotify'};
+  if(host==='instagram.com'||host==='www.instagram.com')return {title:'Publicación de Instagram',description:'',image:'',site:'Instagram',kind:'article'};
+  if(host==='facebook.com'||host.endsWith('.facebook.com')||host==='fb.watch')return {title:'Publicación de Facebook',description:'',image:'',site:'Facebook',kind:'article'};
+  if(host==='x.com'||host==='twitter.com')return {title:'Publicación de X',description:'',image:'',site:'X',kind:'article'};
+  if(host==='tiktok.com'||host.endsWith('.tiktok.com'))return {title:'Video de TikTok',description:'',image:'',site:'TikTok',kind:'video'};
   if(/\.(?:jpe?g|webp|png|gif)(?:$|[?#])/i.test(u.pathname))return {title:'Imagen',description:'',image:value,site:host,kind:'image'};
   if(/\.(?:pdf|docx?|pptx?|xlsx?)(?:$|[?#])/i.test(u.pathname)||/^(docs|drive)\.google\.com$/.test(host))return {title:'Documento',description:'',image:'',site:host,kind:'document'};
   return {title:'',description:'',image:'',site:host,kind:'link'};
@@ -24,8 +30,8 @@ export function guessResourcePreview(value:string):ResourcePreview{
 export function resourceEmbed(value:string):string|null{
   const u=safelyParse(value);if(!u)return null;
   const host=u.hostname.toLowerCase().replace(/^www\./,'');
-  if(host==='youtu.be'||host==='youtube.com'||host==='m.youtube.com'){
-    const v=host==='youtu.be'?u.pathname.split('/')[1]:u.searchParams.get('v')||u.pathname.match(/^\/(?:shorts|embed)\/([^/]+)/)?.[1];
+  if(host==='youtu.be'||host==='youtube.com'||host.endsWith('.youtube.com')||host==='youtube-nocookie.com'){
+    const v=host==='youtu.be'?u.pathname.split('/')[1]:u.searchParams.get('v')||u.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)/)?.[1];
     return v&&/^[\w-]{11}$/.test(v)?'https://www.youtube-nocookie.com/embed/'+v:null;
   }
   if(host==='open.spotify.com'){

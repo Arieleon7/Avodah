@@ -137,3 +137,40 @@
 .resource-attach>.select{flex:1;min-width:150px}
 .resource-attach>.btn{white-space:nowrap}
 @media(max-width:760px){.resource-attach{display:grid;grid-template-columns:minmax(0,1fr) auto;width:100%;min-width:0;gap:8px}.resource-attach>.btn:first-child{grid-column:1/-1}.resource-attach>.select{width:100%;min-width:0}}
+
+/* Recursos · árbol de carpetas compartidas */
+.resource-folder-browser{margin:12px 0 20px;padding:14px 16px;border:1px solid #e6dfd6;border-radius:13px;background:#fffdf9}
+.resource-folder-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.resource-folder-breadcrumb{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
+.resource-folder-breadcrumb button{border:0;background:transparent;display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:7px;color:#737e72;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;cursor:pointer}
+.resource-folder-breadcrumb button.current{font-weight:800;color:#9a5036;background:#f8eee8}
+.resource-folder-crumb{display:inline-flex;align-items:center;gap:3px;color:#a6aaa5;min-width:0}
+.resource-folder-tools{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.resource-folder-tools>button:not(.btn){display:grid;place-items:center;width:32px;height:32px;border:1px solid #eae5df;border-radius:7px;background:#fff;color:#9b7061;cursor:pointer}
+.resource-folder-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:13px}
+.resource-folder-tile{min-width:0;display:flex;align-items:center;gap:10px;padding:13px;background:#f8f7f4;border:1px solid #e9e5df;border-radius:10px;text-align:left;color:#a76b4e;cursor:pointer}
+.resource-folder-tile>span{min-width:0;flex:1;display:grid;gap:3px}
+.resource-folder-tile strong{color:#3c453f;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resource-folder-tile small{font-size:10px;color:#909891}
+.resource-folder-editor{display:flex;align-items:center;gap:7px;margin-top:13px;padding:11px;border-radius:9px;background:#f7f3ee}
+.resource-folder-editor label{font-size:11px;font-weight:700;color:#5e665e}
+.resource-folder-editor .input{min-width:0;flex:1}
+.resource-folder-hint{font-size:10.5px;color:#9a9d95;margin:10px 0 0}
+.resource-folder-error{display:block;color:#a33f36;font-size:11px;margin:8px 0}
+.resource-move-wrap{padding:8px 12px;border-top:1px solid #ece7e0;background:#fffdfa}
+.resource-move-wrap>label{display:flex;align-items:center;gap:8px}
+.resource-move-wrap>label>span{white-space:nowrap;font-size:10px;font-weight:700;color:#848a82}
+.resource-move-wrap .select{width:100%;min-width:0;min-height:34px;font-size:11px;padding:6px}
+.resource-preview-limited{margin:10px 0;padding:10px 12px;border-radius:9px;border:1px solid #ece1d3;background:#fff9f1;color:#866748;font-size:11px;line-height:1.55}
+@media(max-width:760px){
+ .resource-folder-browser{margin:10px 0 13px;padding:11px}
+ .resource-folder-heading{flex-direction:column;align-items:stretch;gap:9px}
+ .resource-folder-tools{justify-content:flex-end}
+ .resource-folder-breadcrumb button{max-width:145px;padding:7px 5px}
+ .resource-folder-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .resource-folder-tile{padding:11px 9px;gap:7px}
+ .resource-folder-editor{flex-wrap:wrap}
+ .resource-folder-editor label{width:100%}
+ .resource-folder-editor .input{flex-basis:70%}
+}
+@media(max-width:420px){.resource-folder-grid{grid-template-columns:1fr}}

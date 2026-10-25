@@ -354,8 +354,8 @@ export default function Home(){
     catch(err){setCloudError(err instanceof Error?err.message:'No se pudo subir o vincular el archivo.');throw err}
   };
   const handlePreviewResource=async(i:LibraryItem)=>{
-    let preview:ResourcePreview={...guessResourcePreview(i.url),fetchedAt:new Date().toISOString()};
-    try {preview=await requestResourcePreview(i.url,mode==='demo')} catch {/* Keep provider fallback for inaccessible sites. */}
+    let preview:ResourcePreview={...guessResourcePreview(i.url),limited:true};
+    try {preview=await requestResourcePreview(i.url,mode==='demo')} catch {/* Preserve a useful placeholder, but do not treat it as fetched metadata. */}
     if(mode==='cloud'){
       try{setCloudError('');await updateLibraryPreview(i.id,preview);await loadCloud(workspace.id)}
       catch(err){setCloudError(err instanceof Error?err.message:'No se pudo actualizar la vista previa.');throw err}
