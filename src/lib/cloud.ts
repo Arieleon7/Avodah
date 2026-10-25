@@ -450,7 +450,7 @@ export async function renameResourceFolder(folderId:string,name:string){
 export async function deleteResourceFolder(folderId:string){
   const [children,library,production]=await Promise.all([
     supabase.from('resource_folders').select('id').eq('parent_id',folderId).limit(1),
-    supabase.from('library_items').select('id').eq('folder_id',folderId).limit(1),
+    supabase.from('library_items').select('id').eq('folder_id',folderId).eq('archived',false).limit(1),
     supabase.from('production_resources').select('library_item_id').eq('folder_id',folderId).limit(1)
   ]);
   for(const r of [children,library,production])if(r.error)throw r.error;
