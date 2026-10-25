@@ -67,11 +67,23 @@ async function readText(u:URL,deadline:number):Promise<{body:string;type:string;
       if(status<200||status>=300){response.resume();return reject(new Error('Site did not return preview metadata'));}
       const type=String(response.headers['content-type']||'').toLowerCase();
       if(!/(text\/html|application\/json|text\/plain|application\/ld\+json)/.test(type)){response.resume();return reject(new Error('No readable preview')); }
-      if(Number(response.headers['content-length']||0)>MAX_BYTES){response.resume();return reject(new Error('Preview too large'));}
-      let size=0;const parts:Buffer[]=[];
-      response.on('data',(chunk:Buffer)=>{size+=chunk.length;if(size>MAX_BYTES){request.destroy(new Error('Preview too large'));return;}parts.push(chunk);});
-      response.on('end',()=>resolve({body:Buffer.concat(parts).toString('utf8'),type}));
-      response.on('error',reject);
+      // Large news pages often put useful Open Graph tags at the start of the HTML.
+      // Stop at </head> or the byte budget instead of rejecting the full page size.
+      let size=0,settled=false;const parts:Buffer[]=[];
+      const finish=()=>{
+        if(settled)return;
+        settled=true;
+        resolve({body:Buffer.concat(parts).toString('utf8'),type});
+        response.destroy();
+      };
+      response.on('data',(chunk:Buffer)=>{
+        if(settled)return;
+        const remaining=MAX_BYTES-size;
+        if(remaining>0){const portion=chunk.subarray(0,remaining);parts.push(portion);size+=portion.length;}
+        if(size>=MAX_BYTES||(type.includes('text/html')&&Buffer.concat(parts).toString('utf8').toLowerCase().includes('</head>')))finish();
+      });
+      response.on('end',finish);
+      response.on('error',error=>{if(!settled)reject(error)});
     });
     request.on('timeout',()=>request.destroy(new Error('Preview timeout')));
     request.on('error',reject);
