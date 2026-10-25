@@ -363,6 +363,28 @@ export default function Home(){
     }else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...previewFields(preview)}:item));
     return preview;
   };
+  const handleRebuildPreviews=async()=>{
+    if(mode!=='cloud'||!user)throw new Error('Iniciá sesión para recuperar vistas previas compartidas.');
+    const targets=library.filter(item=>!item.storagePath&&safeResourceUrl(item.url));
+    const report={total:targets.length,complete:0,images:0,limited:0,errors:0};
+    setCloudError('');
+    for(let offset=0;offset<targets.length;offset+=3){
+      const chunk=targets.slice(offset,offset+3);
+      const results=await Promise.allSettled(chunk.map(async item=>{
+        const preview=await requestResourcePreview(item.url);
+        await updateLibraryPreview(item.id,preview);
+        return preview;
+      }));
+      for(const result of results){
+        if(result.status==='rejected'){report.errors++;continue}
+        if(result.value.limited)report.limited++;
+        else report.complete++;
+        if(result.value.image)report.images++;
+      }
+    }
+    await loadCloud(workspace.id);
+    return report;
+  };
   const handleUpdateLibrary=async(i:LibraryItem)=>{
     if(mode==='cloud'){
       try{setCloudError('');await cloudUpdateLibraryItem(i.id,{title:i.title,note:i.note,category:i.category,source:i.source,tags:i.tags});await announceChange(currentUserName+' editó “'+i.title+'”.','library_item',i.id,'Recurso actualizado');await loadCloud(workspace.id)}
@@ -555,7 +577,7 @@ export default function Home(){
        section==='inicio'?<Dashboard productions={productions} ideas={ideas} library={library} tasks={tasks} messages={messages} currentUserName={currentUserName} workspaceName={workspace.name} openProduction={openProduction} setModal={setModal} go={go}/>:
        section==='producciones'?<Productions productions={productions} openProduction={openProduction} setModal={setModal}/>:
        section==='ideas'?<Ideas ideas={ideas} setModal={setModal} onReact={handleReactIdea} onComment={handleCommentIdea} onArchive={handleArchiveIdea} onConvert={handleConvertIdea}/>:
-       section==='biblioteca'?<ResourceLibrary items={library} productions={productions} folders={folders} onFolderCreate={(parent,name)=>handleCreateFolder(null,parent,name)} onFolderRename={handleRenameFolder} onFolderDelete={handleDeleteFolder} onMoveResource={handleMoveLibraryResource} onNew={folderId=>{setCreationFolderId(folderId);setResourceFileMode('all');setResourceModalTab('link');setModal('library')}} onNewFile={folderId=>{setCreationFolderId(folderId);setResourceFileMode('all');setResourceModalTab('file');setModal('library')}} onNewMedia={folderId=>{setCreationFolderId(folderId);setResourceFileMode('media');setResourceModalTab('file');setModal('library')}} onLink={handleLinkResource} onArchive={handleArchiveLibrary} onPreview={handlePreviewResource} onUpdate={handleUpdateLibrary}/>:
+       section==='biblioteca'?<ResourceLibrary items={library} productions={productions} folders={folders} onFolderCreate={(parent,name)=>handleCreateFolder(null,parent,name)} onFolderRename={handleRenameFolder} onFolderDelete={handleDeleteFolder} onMoveResource={handleMoveLibraryResource} onRebuildPreviews={isCloud?handleRebuildPreviews:undefined} onNew={folderId=>{setCreationFolderId(folderId);setResourceFileMode('all');setResourceModalTab('link');setModal('library')}} onNewFile={folderId=>{setCreationFolderId(folderId);setResourceFileMode('all');setResourceModalTab('file');setModal('library')}} onNewMedia={folderId=>{setCreationFolderId(folderId);setResourceFileMode('media');setResourceModalTab('file');setModal('library')}} onLink={handleLinkResource} onArchive={handleArchiveLibrary} onPreview={handlePreviewResource} onUpdate={handleUpdateLibrary}/>:
        section==='calendario'?<Calendar productions={productions} tasks={tasks} events={calendarEvents} onCreate={handleCreateEvent} onDelete={handleDeleteEvent}/>:
        section==='tareas'?<Tasks tasks={tasks} setModal={setModal} onStatus={handleTaskStatus} onDelete={handleDeleteTask}/>:
        section==='chat'?<Chat channels={channels} channel={channel} setChannel={setChannel} messages={messages} onSend={handleSend} onReact={handleMessageReaction} onPin={handlePinMessage} currentUserId={user?.id} cloud={isCloud}/>:

@@ -213,3 +213,6 @@
 .resource-instagram-unavailable p{margin:0;max-width:300px;font-size:12px;color:#655b5e}
 .resource-instagram-unavailable a{font-weight:700;font-size:12px;color:#a05b3e}
 @media(max-width:760px){.resource-instagram-panel{padding:8px 6px}.resource-instagram-inner{min-height:270px}}
+
+.resource-rebuild-result{margin:-12px 0 16px;border:1px solid #c9dccb;border-radius:10px;background:#f0f6ee;padding:11px 14px;color:#476a4e;font-size:11px;line-height:1.6}
+.resource-rebuild-result.error{background:#fff1ec;border-color:#e8c6bb;color:#a14835}
