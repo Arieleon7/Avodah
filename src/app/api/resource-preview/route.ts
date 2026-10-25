@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import https from 'node:https';
-import { guessResourcePreview, type ResourceKind, type ResourcePreview } from '@/lib/resource-preview';
+import { guessResourcePreview,resourceEmbed, type ResourceKind, type ResourcePreview } from '@/lib/resource-preview';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -80,7 +80,7 @@ async function readText(u:URL,deadline:number):Promise<{body:string;type:string;
         if(settled)return;
         const remaining=MAX_BYTES-size;
         if(remaining>0){const portion=chunk.subarray(0,remaining);parts.push(portion);size+=portion.length;}
-        if(size>=MAX_BYTES||(type.includes('text/html')&&Buffer.concat(parts).toString('utf8').toLowerCase().includes('</head>')))finish();
+        if(size>=MAX_BYTES)finish();
       });
       response.on('end',finish);
       response.on('error',error=>{if(!settled)reject(error)});
@@ -126,6 +126,77 @@ function publicImage(raw:string):string{
   const image=safeUrl(raw);
   return image?image.toString():'';
 }
+
+function plain(html:string):string{
+  return decodeHtml(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ')
+    .replace(/<[^>]+>/g,' ')).slice(0,450);
+}
+function ldPreview(html:string):{title:string;description:string;image:string}{
+  const scripts=html.match(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi)||[];
+  for(const raw of scripts.slice(0,6)){
+    try{
+      const text=raw.replace(/^<script[^>]*>/i,'').replace(/<\/script>$/i,'');
+      const records:unknown[]=[JSON.parse(text)];
+      let depth=0;
+      while(records.length&&depth<65){
+        const current=records.shift();depth++;
+        if(!current||typeof current!=='object')continue;
+        if(Array.isArray(current)){records.push(...current.slice(0,20));continue;}
+        const obj=current as Record<string,unknown>;
+        const kind=String(obj['@type']||'').toLowerCase();
+        if((/article|posting|videoobject|blogposting/.test(kind)||obj.headline)&&
+         (obj.headline||obj.description||obj.image)){
+          let image:unknown=obj.image;
+          if(Array.isArray(image))image=image[0];
+          if(image&&typeof image==='object')image=(image as Record<string,unknown>).url||'';
+          return {
+            title:typeof obj.headline==='string'?plain(obj.headline):'',
+            description:typeof obj.description==='string'?plain(obj.description):'',
+            image:typeof image==='string'?image:''
+          };
+        }
+        for(const key of ['@graph','mainEntity','itemListElement','subjectOf']){
+          if(obj[key])records.push(obj[key]);
+        }
+      }
+    }catch{}
+  }
+  return {title:'',description:'',image:''};
+}
+function articleExcerpt(html:string):string{
+  for(const match of html.matchAll(/<p(?:\s+[^>]*)?>([\s\S]*?)<\/p>/gi)){
+    const text=plain(match[1]);
+    if(text.length>85&&!/cookies|privacidad|suscri|newsletter|publicidad|javascript/i.test(text.slice(0,90)))return text;
+  }
+  return '';
+}
+function slugTitle(url:URL):string{
+  const slug=url.pathname.split('/').filter(Boolean).pop()||'';
+  let title=slug;
+  try{title=decodeURIComponent(slug)}catch{}
+  title=title.replace(/\.(html?|php)$/i,'').replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+  return title.length>12?title[0].toUpperCase()+title.slice(1,160):'';
+}
+function safeTikTokPlayer(id:unknown):string{
+  const text=String(id||'');
+  return /^\d{10,22}$/.test(text)?'https://www.tiktok.com/player/v1/'+text:'';
+}
+async function resolveTikTokLink(start:URL,deadline:number):Promise<URL>{
+  let current=start;
+  for(let i=0;i<3&&Date.now()<deadline-500;i++){
+    try{
+      const result=await readText(current,deadline);
+      if(!result.location)break;
+      const next=safeUrl(new URL(result.location,current).toString());
+      if(!next||!(next.hostname==='tiktok.com'||next.hostname.endsWith('.tiktok.com')))break;
+      current=next;
+      if(/\/video\/\d+/.test(current.pathname))break;
+    }catch{break}
+  }
+  return current;
+}
+
 export async function POST(request:NextRequest){
   try{
     const token=request.headers.get('authorization')?.match(/^Bearer (.+)$/i)?.[1];
@@ -146,7 +217,32 @@ export async function POST(request:NextRequest){
     let fetched:ResourcePreview={...fallback};
     let complete=false;
     try{
-      if(fallback.kind==='youtube'||fallback.kind==='spotify'){
+      if(fallback.kind==='instagram'){
+        // Public posts and Reels can be shown through Instagram's own embedded viewer.
+        // The iframe URL is derived from the original link; no Meta post metadata is persisted.
+        fetched={...fallback};
+        complete=!!resourceEmbed(target.toString());
+      }else if(fallback.kind==='tiktok'){
+        const canonical=(host.startsWith('vt.')||host.startsWith('vm.'))
+          ?await resolveTikTokLink(target,deadline):target;
+        try{
+          const endpoint=new URL('https://www.tiktok.com/oembed?url='+encodeURIComponent(canonical.toString()));
+          const result=await retrieve(endpoint,deadline);
+          const info=JSON.parse(result.body) as Record<string,unknown>;
+          const videoId=info.embed_product_id||
+            String(info.html||'').match(/player\/v1\/(\d{10,22})/)?.[1]||
+            canonical.pathname.match(/\/video\/(\d{10,22})/)?.[1];
+          const embedUrl=safeTikTokPlayer(videoId);
+          fetched={...fallback,title:typeof info.title==='string'?info.title.slice(0,200):fallback.title,
+            description:typeof info.author_name==='string'?info.author_name.slice(0,450):'',
+            image:publicImage(String(info.thumbnail_url||'')),embedUrl};
+          complete=!!(embedUrl||fetched.image);
+        }catch{
+          const videoId=canonical.pathname.match(/\/video\/(\d{10,22})/)?.[1];
+          fetched={...fallback,embedUrl:safeTikTokPlayer(videoId)};
+          complete=!!fetched.embedUrl;
+        }
+      }else if(fallback.kind==='youtube'||fallback.kind==='spotify'){
         const providerUrl=fallback.kind==='youtube'
           ?new URL('https://www.youtube.com/oembed?format=json&url='+encodeURIComponent(target.toString()))
           :new URL('https://open.spotify.com/oembed?url='+encodeURIComponent(target.toString()));
@@ -160,13 +256,17 @@ export async function POST(request:NextRequest){
       }else{
         const resource=await retrieve(target,deadline);
         const html=resource.body;
-        const ttl=meta(html,['og:title','twitter:title'])||decodeHtml((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'');
-        const desc=meta(html,['og:description','twitter:description','description']);
-        const img=makeAbsolute(meta(html,['og:image:secure_url','og:image','twitter:image']),resource.url);
+        const ld=ldPreview(html);
+        const ttl=meta(html,['og:title','twitter:title'])||ld.title||
+          decodeHtml((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'')||
+          plain((html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)||[])[1]||'');
+        const desc=meta(html,['og:description','twitter:description','description'])||ld.description||articleExcerpt(html);
+        const imageSource=meta(html,['og:image:secure_url','og:image','twitter:image','thumbnail'])||ld.image;
+        const img=makeAbsolute(imageSource,resource.url);
         const typ=meta(html,['og:type']);
         const source=meta(html,['og:site_name','application-name']);
         const kind:ResourceKind=fallback.kind==='document'?'document':typ==='article'?'article':fallback.kind;
-        fetched={title:ttl||fallback.title||host,description:desc,image:publicImage(img),site:source||fallback.site,kind};
+        fetched={title:ttl||slugTitle(resource.url)||fallback.title||host,description:desc,image:publicImage(img),site:source||fallback.site,kind};
         complete=!!(ttl||desc||img);
       }
       if(fetched.image){
@@ -174,7 +274,7 @@ export async function POST(request:NextRequest){
       }
     }catch{
       // Unsupported, private or bot-protected sites retain the provider/type fallback.
-      fetched={...fallback,title:fallback.title||host};
+      fetched={...fallback,title:fallback.title||slugTitle(target)||host};
       complete=false;
     }
     // Do not mark a generic placeholder as a successful preview. It should be retried later.

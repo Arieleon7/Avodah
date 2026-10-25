@@ -1,25 +1,33 @@
 'use client';
 import {useEffect,useRef,useState, type FormEvent, type DragEvent} from 'react';
-import {Search, Grid2X2, List, Plus, X, ChevronRight, Copy, ExternalLink, RefreshCw, FileText, Music2, Globe2, Image as ImageIcon, PlayCircle, BookOpen, UploadCloud, Video, FileAudio, FileUp, FileImage, Download, CloudOff, LibraryBig, Film, Headphones, Images, FolderOpen} from 'lucide-react';
+import {Search, Grid2X2, List, Plus, X, ChevronRight, Copy, ExternalLink, RefreshCw, FileText, Music2, Globe2, Image as ImageIcon, PlayCircle, BookOpen, UploadCloud, Video, FileAudio, FileUp, FileImage, Download, CloudOff, LibraryBig, Film, Headphones, Images, FolderOpen, Instagram} from 'lucide-react';
 import {guessResourcePreview,resourceEmbed,safeResourceUrl,resourceHost,type ResourcePreview} from '@/lib/resource-preview';
 import {requestResourcePreview,resourceSignedUrl,inspectResourceFile,RESOURCE_FILE_LIMIT,type ResourceFolder} from '@/lib/cloud';
 import {ResourceFolderExplorer,ResourceMoveSelect} from './resource-folders';
 
 export type ResourceItem={
  id:string;title:string;category:string;url:string;note:string;source:string;tags:string[];folderId?:string|null;
- previewTitle?:string;previewDescription?:string;previewImage?:string;previewSite?:string;previewKind?:string;previewFetchedAt?:string;
+ previewTitle?:string;previewDescription?:string;previewImage?:string;previewSite?:string;previewKind?:string;previewFetchedAt?:string;previewEmbedUrl?:string;
  storagePath?:string;fileName?:string;fileMime?:string;fileSize?:number;fileUrl?:string;
 };
 export type ResourceProduction={id:string;title:string;resourceIds?:string[]};
 
 export function previewFields(p:ResourcePreview){
- return {previewTitle:p.title||'',previewDescription:p.description||'',previewImage:p.image||'',previewSite:p.site||'',previewKind:p.kind||'link',previewFetchedAt:p.fetchedAt||undefined};
+ return {previewTitle:p.title||'',previewDescription:p.description||'',previewImage:p.image||'',previewSite:p.site||'',previewKind:p.kind||'link',previewFetchedAt:p.fetchedAt||undefined,previewEmbedUrl:p.embedUrl||''};
 }
 export function resourceInfo(item:ResourceItem):ResourcePreview{
  const fallback=guessResourcePreview(item.url);
- return {title:item.previewTitle||fallback.title||item.title,description:item.previewDescription||fallback.description||'',image:item.previewImage||fallback.image||'',site:item.previewSite||item.source||fallback.site,kind:(item.previewKind||fallback.kind||'link') as ResourcePreview['kind'],fetchedAt:item.previewFetchedAt};
+ const storedTitle=item.previewTitle||'';
+ const generic=storedTitle===resourceHost(item.url)||[
+  'Publicación de Instagram','Video de TikTok','Video de YouTube','Contenido de Spotify'
+ ].includes(storedTitle);
+ const title=(!storedTitle||generic)?item.title||storedTitle||fallback.title:storedTitle;
+ const kind=(fallback.kind==='instagram'||fallback.kind==='tiktok'?fallback.kind:item.previewKind||fallback.kind||'link') as ResourcePreview['kind'];
+ return {title,description:item.previewDescription||fallback.description||'',
+   image:item.previewImage||fallback.image||'',site:item.previewSite||item.source||fallback.site,
+   kind,fetchedAt:item.previewFetchedAt,embedUrl:item.previewEmbedUrl||''};
 }
-const typeNames:Record<string,string>={youtube:'YouTube',spotify:'Spotify',document:'Documento',image:'Imagen',audio:'Audio',video:'Video',article:'Artículo',link:'Enlace'};
+const typeNames:Record<string,string>={youtube:'YouTube',spotify:'Spotify',instagram:'Instagram',tiktok:'TikTok',document:'Documento',image:'Imagen',audio:'Audio',video:'Video',article:'Artículo',link:'Enlace'};
 const fileSize=(size:number)=>size>=1024*1024?(size/1024/1024).toFixed(1)+' MB':Math.max(1,Math.ceil(size/1024))+' KB';
 type LibrarySection='library'|'media';
 type MediaKind='Imagen'|'Audio'|'Video';
@@ -40,7 +48,7 @@ function MediaArtwork({item}:{item:ResourceItem}){
 }
 export function ResourceMedia({item}:{item:ResourceItem}){
  const p=resourceInfo(item);
- const Icon=p.kind==='youtube'?PlayCircle:p.kind==='spotify'?Music2:p.kind==='image'?ImageIcon:p.kind==='document'?FileText:p.kind==='audio'?FileAudio:p.kind==='video'?Video:p.kind==='article'?BookOpen:Globe2;
+ const Icon=p.kind==='youtube'?PlayCircle:p.kind==='spotify'?Music2:p.kind==='instagram'?Instagram:p.kind==='tiktok'?Video:p.kind==='image'?ImageIcon:p.kind==='document'?FileText:p.kind==='audio'?FileAudio:p.kind==='video'?Video:p.kind==='article'?BookOpen:Globe2;
  return <div className={'resource-artwork resource-art-'+p.kind}>
   <div className="resource-art-fallback"><Icon size={34} strokeWidth={1.55}/><span>{p.site}</span></div>
   {(item.storagePath&&p.kind==='image'?item.fileUrl:p.image)&&<img src={item.storagePath&&p.kind==='image'?item.fileUrl:p.image} alt={p.title?'Portada de '+p.title:'Imagen del recurso'} loading="lazy" referrerPolicy="no-referrer" onError={event=>{event.currentTarget.style.display='none'}}/>}
@@ -48,19 +56,22 @@ export function ResourceMedia({item}:{item:ResourceItem}){
  </div>;
 }
 
-export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,onLink,onUnlink}:{item:ResourceItem;onClose:()=>void;onPreview:(i:ResourceItem)=>void|Promise<void>;onUpdate:(i:ResourceItem)=>void|Promise<void>;productions?:ResourceProduction[];onLink?:(pid:string,id:string)=>void|Promise<void>;onUnlink?:()=>void}){
+export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,onLink,onUnlink}:{item:ResourceItem;onClose:()=>void;onPreview:(i:ResourceItem)=>void|Promise<ResourcePreview|void>;onUpdate:(i:ResourceItem)=>void|Promise<void>;productions?:ResourceProduction[];onLink?:(pid:string,id:string)=>void|Promise<void>;onUnlink?:()=>void}){
  const [editing,setEditing]=useState(false),[draft,setDraft]=useState(item),[tagsInput,setTagsInput]=useState(item.tags.join(', ')),[busy,setBusy]=useState(false),[error,setError]=useState(''),[savedMessage,setSavedMessage]=useState(''),[copied,setCopied]=useState(false),[target,setTarget]=useState('');
  useEffect(()=>{if(!editing){setDraft(item);setTagsInput(item.tags.join(', '))}},[item,editing]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key)},[onClose]);
- const preview=resourceInfo(item),url=safeResourceUrl(item.url),embed=resourceEmbed(url);
+ const preview=resourceInfo(item),url=safeResourceUrl(item.url),embed=resourceEmbed(url,item.previewEmbedUrl);
  const isFile=!!item.storagePath||!!(item.fileName&&item.fileUrl);
  const [freshFileUrl,setFreshFileUrl]=useState(item.fileUrl||'');
+ const [showExternal,setShowExternal]=useState(false);
+ const autoPreviewAttempt=useRef(false);
+ useEffect(()=>{if(!autoPreviewAttempt.current&&safeResourceUrl(item.url)&&!item.previewFetchedAt){autoPreviewAttempt.current=true;void Promise.resolve(onPreview(item)).catch(()=>{})}},[item.id,item.previewFetchedAt,item.url,onPreview]);
  useEffect(()=>{let alive=true;
   if(item.storagePath){void resourceSignedUrl(item.storagePath).then(link=>{if(alive)setFreshFileUrl(link)}).catch(()=>{if(alive)setError('No se pudo abrir el archivo privado. Comprobá tu sesión.')})}
   else setFreshFileUrl(item.fileUrl||'');
   return()=>{alive=false};
  },[item.storagePath,item.fileUrl]);
- const refresh=async()=>{setBusy(true);setError('');setSavedMessage('');try{await onPreview(item);setSavedMessage('Vista previa actualizada.')}catch(e){setError(e instanceof Error?e.message:'El sitio no permite recuperar una vista previa. Podés abrir el enlace original.')}finally{setBusy(false)}};
+ const refresh=async()=>{setBusy(true);setError('');setSavedMessage('');try{const result=await onPreview(item);if(result?.limited)setError('Esta plataforma no entregó imagen o descripción. Podés abrir el original y seguir usando el recurso.');else setSavedMessage('Vista previa actualizada.')}catch(e){setError(e instanceof Error?e.message:'El sitio no permite recuperar una vista previa. Podés abrir el enlace original.')}finally{setBusy(false)}};
  const save=async()=>{if(!draft.title.trim()){setError('Escribí un título.');return;}setBusy(true);setError('');setSavedMessage('');try{await onUpdate({...draft,title:draft.title.trim(),tags:tagsInput.split(',').map(s=>s.trim()).filter(Boolean)});setEditing(false);setSavedMessage('Nota y ficha guardadas para toda la organización.')}catch(e){setError(e instanceof Error?e.message:'No se pudo guardar.')}finally{setBusy(false)}};
  const copy=async()=>{try{await navigator.clipboard.writeText(url);setCopied(true);setTimeout(()=>setCopied(false),1800)}catch{setError('No se pudo copiar el enlace.')}};
  return <div className="resource-preview-backdrop" onMouseDown={e=>{if(e.currentTarget===e.target)onClose()}}>
@@ -73,7 +84,13 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
      freshFileUrl&&item.fileMime?.startsWith('video/')?<video src={freshFileUrl} controls playsInline preload="metadata">El navegador no admite este video.</video>:
      freshFileUrl&&item.fileMime==='application/pdf'?<iframe className="resource-pdf" src={freshFileUrl+'#toolbar=1'} title={'Vista previa del PDF '+item.title}/>:
      <ResourceMedia item={{...item,fileUrl:freshFileUrl}}/>}
-   </div>:embed?<div className="resource-embed"><iframe src={embed} title={'Vista previa de '+item.title} loading="lazy" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/></div>:<ResourceMedia item={item}/>}
+   </div>:embed?<div className={'resource-embed'+(preview.kind==='instagram'||preview.kind==='tiktok'?' social '+preview.kind:'')}><iframe src={embed} title={'Vista previa de '+item.title} loading="eager" allow="autoplay; encrypted-media; picture-in-picture; fullscreen; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen/><div className="resource-embed-footer">Vista integrada de {typeNames[preview.kind]||preview.site}. Si el autor restringió la inserción, abrí el contenido original.</div></div>:<div className="resource-web-preview">
+    <ResourceMedia item={item}/>
+    <div className="resource-web-summary"><span>{preview.site||resourceHost(url)}</span><strong>{preview.title||item.title}</strong><p>{preview.description||'Este sitio no proporciona una descripción pública. El recurso sigue disponible en su página original.'}</p>
+    {url&&<a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/> Abrir recurso original</a>}</div>
+    {url&&!['instagram','tiktok'].includes(preview.kind)&&<div className="resource-inline-site"><button type="button" className="btn sm" onClick={()=>setShowExternal(v=>!v)}>{showExternal?'Ocultar sitio':'Intentar ver la página aquí'}</button>
+    {showExternal&&<><p>Algunas páginas no autorizan mostrarse dentro de otras aplicaciones.</p><iframe title={'Página original: '+item.title} src={url} loading="lazy" referrerPolicy="no-referrer" sandbox="allow-scripts allow-forms allow-popups" /></>}</div>}
+    </div>}
    <div className="resource-preview-body">
     <div className="resource-preview-meta"><span>{typeNames[preview.kind]||item.category}</span><span>{isFile?'Archivo privado · '+fileSize(item.fileSize||0):preview.site}</span></div>
     {editing?<div className="resource-edit">
@@ -93,7 +110,7 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
  </section></div>;
 }
 
-export function ResourceLibrary({items,productions,folders=[],onFolderCreate,onFolderRename,onFolderDelete,onMoveResource,onNew,onNewFile,onNewMedia,onLink,onArchive,onPreview,onUpdate}:{items:ResourceItem[];productions:ResourceProduction[];folders?:ResourceFolder[];onFolderCreate?:(parent:string|null,name:string)=>Promise<void>;onFolderRename?:(folderId:string,name:string)=>Promise<void>;onFolderDelete?:(folderId:string)=>Promise<void>;onMoveResource?:(id:string,folderId:string|null)=>Promise<void>;onNew:(folderId:string|null)=>void;onNewFile:(folderId:string|null)=>void;onNewMedia:(folderId:string|null)=>void;onLink:(p:string,i:string)=>void|Promise<void>;onArchive:(item:ResourceItem)=>void|Promise<void>;onPreview:(item:ResourceItem)=>void|Promise<void>;onUpdate:(item:ResourceItem)=>void|Promise<void>}){
+export function ResourceLibrary({items,productions,folders=[],onFolderCreate,onFolderRename,onFolderDelete,onMoveResource,onNew,onNewFile,onNewMedia,onLink,onArchive,onPreview,onUpdate}:{items:ResourceItem[];productions:ResourceProduction[];folders?:ResourceFolder[];onFolderCreate?:(parent:string|null,name:string)=>Promise<void>;onFolderRename?:(folderId:string,name:string)=>Promise<void>;onFolderDelete?:(folderId:string)=>Promise<void>;onMoveResource?:(id:string,folderId:string|null)=>Promise<void>;onNew:(folderId:string|null)=>void;onNewFile:(folderId:string|null)=>void;onNewMedia:(folderId:string|null)=>void;onLink:(p:string,i:string)=>void|Promise<void>;onArchive:(item:ResourceItem)=>void|Promise<void>;onPreview:(item:ResourceItem)=>void|Promise<ResourcePreview|void>;onUpdate:(item:ResourceItem)=>void|Promise<void>}){
  const [section,setSection]=useState<LibrarySection>('library');
  const [activeFolder,setActiveFolder]=useState<string|null>(null);
  const [search,setSearch]=useState(''),[category,setCategory]=useState('Todos'),[mediaFilter,setMediaFilter]=useState<'Todos'|MediaKind>('Todos'),[view,setView]=useState<'grid'|'list'>('grid'),[targets,setTargets]=useState<Record<string,string>>({}),[selected,setSelected]=useState<ResourceItem|null>(null);

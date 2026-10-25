@@ -174,3 +174,32 @@
  .resource-folder-editor .input{flex-basis:70%}
 }
 @media(max-width:420px){.resource-folder-grid{grid-template-columns:1fr}}
+
+/* Resource quick view: first-party social players and a readable link preview */
+.resource-embed{aspect-ratio:auto;display:grid;background:#f4f1ec}
+.resource-embed iframe{display:block;width:100%;height:clamp(210px,29vw,360px);background:#fff}
+.resource-embed.social{justify-items:center;padding:12px 12px 0;background:#f5f1ec}
+.resource-embed.social iframe{height:min(70vh,690px);width:min(100%,480px);border:0;border-radius:10px;background:#fff}
+.resource-embed-footer{width:100%;padding:12px 18px;font-size:11px;line-height:1.5;text-align:center;color:#796d63;background:#faf7f3}
+.resource-web-preview{overflow:hidden;background:#f8f6f2}
+.resource-web-preview>.resource-artwork{height:225px;border-radius:0}
+.resource-web-summary{display:grid;gap:9px;padding:18px 22px;background:#fffcf8}
+.resource-web-summary>span{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9e684d}
+.resource-web-summary>strong{font-size:17px;line-height:1.35;letter-spacing:-.02em;color:#243129}
+.resource-web-summary>p{font-size:12px;line-height:1.65;color:#647066;margin:0;max-width:65ch}
+.resource-web-summary>a{display:inline-flex;align-items:center;gap:7px;width:max-content;color:#a85435;font-size:11px;font-weight:800}
+.resource-inline-site{padding:0 20px 18px;background:#fffcf8}
+.resource-inline-site>p{font-size:10px;line-height:1.5;color:#877c72}
+.resource-inline-site>iframe{display:block;width:100%;height:min(56vh,560px);margin-top:12px;border:1px solid #dedad5;border-radius:9px;background:#fff}
+.resource-art-instagram{background:linear-gradient(125deg,#54366e,#a74577 52%,#d98254)}
+.resource-art-tiktok{background:linear-gradient(130deg,#10191b,#252a32 65%,#244851)}
+.resource-art-instagram .resource-art-fallback,.resource-art-tiktok .resource-art-fallback{color:#fff}
+@media(max-width:760px){
+ .resource-embed.social{padding:8px 8px 0}
+ .resource-embed.social iframe{height:65vh}
+ .resource-embed-footer{padding:10px;font-size:10px}
+ .resource-web-preview>.resource-artwork{height:170px}
+ .resource-web-summary{padding:15px}
+ .resource-web-summary>strong{font-size:15px}
+ .resource-inline-site{padding:0 15px 15px}
+}

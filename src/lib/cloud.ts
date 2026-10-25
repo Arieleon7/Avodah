@@ -182,7 +182,7 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
     productionNotes:(productionNoteRes.data ?? []).map((n:any)=>({id:n.id,productionId:n.production_id,title:n.title,content:n.content,authorId:n.created_by??undefined,author:nameOf(n.created_by)||'Integrante',createdAt:n.created_at,updatedAt:n.updated_at})),
     ideas:(ideaRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,description:i.description,tags:i.tags??[],author:nameOf(i.author_id),authorId:i.author_id,reactions:reactionCount.get(i.id)||0,comments:(commentsByIdea.get(i.id)||[]).length,commentItems:commentsByIdea.get(i.id)||[],archived:i.archived})),
     folders:(folderRes.data??[]).map((f:any)=>({id:f.id,workspaceId:f.workspace_id,productionId:f.production_id||null,parentId:f.parent_id||null,name:f.name})),
-    library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,folderId:i.folder_id||null,title:i.title,category:i.category,url:i.url??'',note:i.note,source:i.source,tags:i.tags??[],previewTitle:i.preview_title||'',previewDescription:i.preview_description||'',previewImage:i.preview_image||'',previewSite:i.preview_site||'',previewKind:i.preview_kind||'',previewFetchedAt:i.preview_fetched_at||'',storagePath:i.storage_path||'',fileName:i.file_name||'',fileMime:i.mime_type||'',fileSize:Number(i.file_size||0),fileUrl:resourceFileUrls.get(i.id)||''})),
+    library:(libraryRes.data ?? []).map((i:any)=>({id:i.id,folderId:i.folder_id||null,title:i.title,category:i.category,url:i.url??'',note:i.note,source:i.source,tags:i.tags??[],previewTitle:i.preview_title||'',previewDescription:i.preview_description||'',previewImage:i.preview_image||'',previewEmbedUrl:i.preview_embed_url||'',previewSite:i.preview_site||'',previewKind:i.preview_kind||'',previewFetchedAt:i.preview_fetched_at||'',storagePath:i.storage_path||'',fileName:i.file_name||'',fileMime:i.mime_type||'',fileSize:Number(i.file_size||0),fileUrl:resourceFileUrls.get(i.id)||''})),
     tasks:(taskRes.data ?? []).map((t:any)=>({id:t.id,title:t.title,status:taskStatusFromDb[t.status]??'Pendiente',assignee:nameOf(t.assignee_id)||'Sin asignar',assigneeId:t.assignee_id,due:t.due_at?new Date(t.due_at).toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'Sin fecha',dueAt:t.due_at,priority:t.priority,productionId:t.production_id??undefined})),
     channels:channels.map((c:any)=>({id:channelAlias.get(c.id)!,dbId:c.id,name:c.name,productionId:c.production_id??undefined,kind:c.kind})),
     messages:(messageRes.data ?? []).map((m:any)=>({id:m.id,channel:channelAlias.get(m.channel_id)??m.channel_id,dbChannelId:m.channel_id,author:nameOf(m.author_id),authorId:m.author_id,text:m.body,time:new Date(m.created_at).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),replyTo:m.reply_to,pinned:!!m.pinned_at,reactions:reactionsByMessage.get(m.id)||[],attachments:attachmentsByMessage.get(m.id)||[]})),
@@ -209,17 +209,18 @@ export async function insertLibraryItem(workspaceId:string,userId:string,i:any) 
     workspace_id:workspaceId,added_by:userId,title:i.title,category:i.category,url:i.url||null,
     note:i.note,source:i.source,tags:i.tags,
     preview_title:i.previewTitle||null,preview_description:i.previewDescription||null,
-    preview_image:i.previewImage||null,preview_site:i.previewSite||null,
+    preview_image:i.previewImage||null,preview_embed_url:i.previewEmbedUrl||null,preview_site:i.previewSite||null,
     preview_kind:i.previewKind||null,preview_fetched_at:i.previewFetchedAt||null
   }).select('id').single();
   if(error)throw error;
   return data.id as string;
 }
 export async function updateLibraryPreview(itemId:string,preview:{
-  title:string;description:string;image:string;site:string;kind:string;fetchedAt?:string
+  title:string;description:string;image:string;site:string;kind:string;fetchedAt?:string;embedUrl?:string
 }) {
   const {error}=await supabase.from('library_items').update({
     preview_title:preview.title,preview_description:preview.description,preview_image:preview.image,
+    preview_embed_url:preview.embedUrl||null,
     preview_site:preview.site,preview_kind:preview.kind,preview_fetched_at:preview.fetchedAt||null
   }).eq('id',itemId);
   if(error)throw error;
