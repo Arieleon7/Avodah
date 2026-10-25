@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import {QuickChatBubble} from './components/quick-chat';
 import type { User } from '@supabase/supabase-js';
 import {ResourceLibrary,ResourceQuickView,ResourceMedia,ResourceCreate,previewFields,type UploadResourceInfo} from './components/resource-library';
+import {ResourceFolderExplorer,ResourceMoveSelect} from './components/resource-folders';
 import {ScriptBoard} from './components/script-board';
 import {ScriptDocumentView} from './components/script-document';
 import {ProductionNotes,type ProductionNoteItem} from './components/production-notes';
@@ -15,18 +16,18 @@ import {BlockEditorDialog,CalendarEditorDialog,WorkspaceEditorDialog,FlexibleTex
 import {safeResourceUrl,guessResourcePreview,type ResourcePreview} from '@/lib/resource-preview';
 import { LayoutDashboard, Radio, Lightbulb, BookOpen, CalendarDays, CheckSquare, MessageCircle, Users, Settings as SettingsIcon, Video, Search, Plus, ArrowUpRight, Mic2, Clock3, Menu, X, ChevronRight, ChevronDown, ListChecks, FileText, ShieldCheck, type LucideIcon } from 'lucide-react';
 import {
-  archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, deleteProductionNote, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, insertProductionNote, uploadLibraryFile, updateLibraryPreview, updateLibraryItem as cloudUpdateLibraryItem, requestResourcePreview, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, reorderBlocks, updateMemberRole, updateProduction, updateProductionNote, uploadProductionCover, removeProductionCover, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment, logWorkspaceActivity, syncEnabledPushSubscriptions,
+  archiveIdea as cloudArchiveIdea, createWorkspace, createWorkspaceInvite, deleteBlock, deleteCalendarEvent, deleteLibraryItem, deleteProduction, deleteTask, deleteProductionNote, getCurrentUser, insertBlock, insertCalendarEvent, insertIdea, insertIdeaComment, insertLibraryItem, insertProductionNote, uploadLibraryFile, updateLibraryPreview, updateLibraryItem as cloudUpdateLibraryItem, requestResourcePreview, insertMessage, insertProduction, insertTask, joinWorkspace, linkResourceToProduction, listWorkspaces, loadWorkspaceSnapshot, reactIdea as cloudReactIdea, signIn, signInWithGoogle, signOut, signUp, subscribeWorkspace, unlinkResourceFromProduction, updateBlock, reorderBlocks, updateMemberRole, updateProduction, updateProductionNote, uploadProductionCover, removeProductionCover, toggleMessageReaction, togglePinMessage, updateProductionNotes, updateTaskStatus, updateWorkspace, uploadMessageAttachment, logWorkspaceActivity, syncEnabledPushSubscriptions,createResourceFolder,renameResourceFolder,deleteResourceFolder,moveLibraryResource,moveProductionResource,type ResourceFolder,
 } from '@/lib/cloud';
 
 type Section = 'inicio'|'producciones'|'ideas'|'biblioteca'|'calendario'|'tareas'|'chat'|'equipo'|'configuracion'|'reunion';
 type Status = 'Idea'|'En preparación'|'Listo'|'En vivo'|'Emitido'|'Archivado';
 type TaskStatus = 'Pendiente'|'En curso'|'Hecho';
-type Production = {id:string;title:string;type:string;status:Status;date:string;time:string;duration:number;completion:number;topic:string;question:string;objective:string;description:string;references:string[];hosts:string[];guests:string[];notes:string;members:string[];resourceIds?:string[];coverPath?:string;coverUrl?:string;youtubeLiveUrl?:string};
+type Production = {id:string;title:string;type:string;status:Status;date:string;time:string;duration:number;completion:number;topic:string;question:string;objective:string;description:string;references:string[];hosts:string[];guests:string[];notes:string;members:string[];resourceIds?:string[];resourceFolderIds?:Record<string,string|null>;coverPath?:string;coverUrl?:string;youtubeLiveUrl?:string};
 type Block = {id:string;productionId:string;order:number;type:string;title:string;duration:number;responsible:string;responsibleId?:string|null;notes:string;status:string};
 type ProductionNote = ProductionNoteItem;
 type IdeaComment = {id:string;author:string;authorId?:string;text:string;time:string};
 type Idea = {id:string;title:string;description:string;tags:string[];author:string;reactions:number;comments:number;commentItems?:IdeaComment[];archived?:boolean};
-type LibraryItem = {id:string;title:string;category:string;url:string;note:string;source:string;tags:string[];previewTitle?:string;previewDescription?:string;previewImage?:string;previewSite?:string;previewKind?:string;previewFetchedAt?:string;storagePath?:string;fileName?:string;fileMime?:string;fileSize?:number;fileUrl?:string};
+type LibraryItem = {id:string;folderId?:string|null;title:string;category:string;url:string;note:string;source:string;tags:string[];previewTitle?:string;previewDescription?:string;previewImage?:string;previewSite?:string;previewKind?:string;previewFetchedAt?:string;storagePath?:string;fileName?:string;fileMime?:string;fileSize?:number;fileUrl?:string};
 type Task = {id:string;title:string;status:TaskStatus;assignee:string;due:string;dueDate?:string;dueAt?:string|null;priority:string;productionId?:string};
 type Attachment = {id:string;name:string;mimeType:string;size:number;url:string};
 type Reaction = {userId:string;emoji:string};
@@ -109,6 +110,7 @@ export default function Home(){
   const [productionNotes,setProductionNotes]=useState<ProductionNote[]>([]);
   const [ideas,setIdeas]=useState<Idea[]>(seedIdeas);
   const [library,setLibrary]=useState<LibraryItem[]>(seedLibrary);
+  const [folders,setFolders]=useState<ResourceFolder[]>([]);
   const [tasks,setTasks]=useState<Task[]>(seedTasks);
   const [messages,setMessages]=useState<Message[]>(seedMessages);
   const [channels,setChannels]=useState<Channel[]>(seedChannels);
@@ -137,6 +139,7 @@ export default function Home(){
     setProductionNotes((snap.productionNotes??[]) as ProductionNote[]);
     setIdeas(snap.ideas as Idea[]);
     setLibrary(snap.library as LibraryItem[]);
+    setFolders((snap.folders??[]) as ResourceFolder[]);
     setTasks(snap.tasks as Task[]);
     setChannels((snap.channels as Channel[]).length?snap.channels as Channel[]:[{id:'general',name:'General'}]);
     setMessages(snap.messages as Message[]);
@@ -196,6 +199,7 @@ export default function Home(){
     setProductionNotes(seedProductions.filter(p=>p.notes).map((p,index)=>({id:'demo-note-'+index,productionId:p.id,title:'Nota general',content:p.notes,author:'Ariel Cataldo',authorId:'demo',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()})));
     setIdeas(load('avodah-ideas',seedIdeas));
     setLibrary(load('avodah-library',seedLibrary));
+    setFolders([]);
     setTasks(load('avodah-tasks',seedTasks));
     setMessages(load('avodah-messages',seedMessages));
     setChannels(seedChannels);
@@ -364,6 +368,28 @@ export default function Home(){
     }else setLibrary(x=>x.map(item=>item.id===i.id?{...item,...i}:item));
   };
   const handleTask=async(t:Task)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{const taskId=await insertTask(workspace.id,user.id,t,members);await announceChange(currentUserName+' agregó la tarea “'+t.title+'”.','task',taskId,'Nueva tarea')});else setTasks(x=>[t,...x])};
+  const handleCreateFolder=async(productionId:string|null,parentId:string|null,name:string)=>{
+    if(mode!=='cloud'||!user)throw new Error('Iniciá sesión para crear carpetas compartidas.');
+    const folderId=await createResourceFolder(workspace.id,user.id,productionId,parentId,name);
+    await announceChange(currentUserName+' creó la carpeta “'+name.trim()+'”.','resource_folder',folderId,'Nueva carpeta');
+    await loadCloud(workspace.id);
+  };
+  const handleRenameFolder=async(folderId:string,name:string)=>{
+    if(mode!=='cloud')throw new Error('Iniciá sesión para editar carpetas.');
+    await renameResourceFolder(folderId,name);await loadCloud(workspace.id);
+  };
+  const handleDeleteFolder=async(folderId:string)=>{
+    if(mode!=='cloud')throw new Error('Iniciá sesión para editar carpetas.');
+    await deleteResourceFolder(folderId);await loadCloud(workspace.id);
+  };
+  const handleMoveLibraryResource=async(itemId:string,folderId:string|null)=>{
+    if(mode!=='cloud')throw new Error('Iniciá sesión para mover archivos.');
+    await moveLibraryResource(itemId,folderId);await loadCloud(workspace.id);
+  };
+  const handleMoveProductionResource=async(productionId:string,itemId:string,folderId:string|null)=>{
+    if(mode!=='cloud')throw new Error('Iniciá sesión para mover archivos.');
+    await moveProductionResource(productionId,itemId,folderId);await loadCloud(workspace.id);
+  };
   const handleReactIdea=async(i:Idea)=>{if(mode==='cloud'&&user)await cloudAction(async()=>{await cloudReactIdea(i.id,user.id)});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,reactions:q.reactions+1}:q))};
   const handleCommentIdea=async(i:Idea,text:string)=>{if(!text.trim())return;if(mode==='cloud'&&user)await cloudAction(async()=>{await insertIdeaComment(i.id,user.id,text.trim());await announceChange(currentUserName+' comentó “'+i.title+'”.','idea',i.id,'Nuevo comentario')});else setIdeas(all=>all.map(x=>x.id===i.id?{...x,comments:x.comments+1,commentItems:[...(x.commentItems??[]),{id:id('ic'),author:currentUserName,text:text.trim(),time:'Ahora'}]}:x))};
   const handleArchiveIdea=async(i:Idea)=>{if(mode==='cloud')await cloudAction(async()=>{await cloudArchiveIdea(i.id);await announceChange(currentUserName+' archivó “'+i.title+'”.','idea',i.id,'Idea archivada')});else setIdeas(x=>x.map(q=>q.id===i.id?{...q,archived:true}:q))};
@@ -523,11 +549,11 @@ export default function Home(){
       </div>
       {cloudError&&<div className="notice error-notice">{cloudError}</div>}
        {isCloud&&section==='inicio'&&<PushNotificationsCard compact workspaceId={workspace.id} workspaceIds={workspaceList.map(w=>w.id)} userId={user?.id} cloud={isCloud}/>}
-      {currentProduction ? <ProductionDetail p={currentProduction} blocks={currentBlocks} productionNotes={currentProductionNotes} tab={productionTab} setTab={setProductionTab} library={library} tasks={tasks} messages={messages} startProgram={()=>startProgram(currentProduction.id)} back={()=>setSelectedProduction(null)} onAddBlock={handleAddBlock} onReorderBlocks={handleReorderBlocks} onDuplicateBlock={handleDuplicateBlock} onEditProduction={handleEditProduction} onDeleteProduction={handleDeleteProduction} onCreateNote={handleCreateProductionNote} onUpdateNote={handleUpdateProductionNote} onDeleteNote={handleDeleteProductionNote} onEditBlock={handleEditBlock} onDeleteBlock={handleDeleteBlock} onLinkResource={handleLinkResource} onUnlinkResource={handleUnlinkResource} onPreviewResource={handlePreviewResource} onUpdateResource={handleUpdateLibrary} onCreateResource={(item)=>handleCreateResourceForProduction(item,currentProduction.id)} onUploadResource={(file,info)=>handleUploadResourceForProduction(file,info,currentProduction.id)} onUploadCover={file=>handleProductionCover(currentProduction.id,file)} onRemoveCover={()=>handleRemoveProductionCover(currentProduction.id)} demo={!isCloud}/> :
+      {currentProduction ? <ProductionDetail p={currentProduction} blocks={currentBlocks} productionNotes={currentProductionNotes} tab={productionTab} setTab={setProductionTab} library={library} tasks={tasks} messages={messages} startProgram={()=>startProgram(currentProduction.id)} back={()=>setSelectedProduction(null)} onAddBlock={handleAddBlock} onReorderBlocks={handleReorderBlocks} onDuplicateBlock={handleDuplicateBlock} onEditProduction={handleEditProduction} onDeleteProduction={handleDeleteProduction} onCreateNote={handleCreateProductionNote} onUpdateNote={handleUpdateProductionNote} onDeleteNote={handleDeleteProductionNote} onEditBlock={handleEditBlock} onDeleteBlock={handleDeleteBlock} onLinkResource={handleLinkResource} onUnlinkResource={handleUnlinkResource} folders={folders} onFolderCreate={(parent,name)=>handleCreateFolder(currentProduction.id,parent,name)} onFolderRename={handleRenameFolder} onFolderDelete={handleDeleteFolder} onMoveResource={(id,folder)=>handleMoveProductionResource(currentProduction.id,id,folder)} onPreviewResource={handlePreviewResource} onUpdateResource={handleUpdateLibrary} onCreateResource={(item)=>handleCreateResourceForProduction(item,currentProduction.id)} onUploadResource={(file,info)=>handleUploadResourceForProduction(file,info,currentProduction.id)} onUploadCover={file=>handleProductionCover(currentProduction.id,file)} onRemoveCover={()=>handleRemoveProductionCover(currentProduction.id)} demo={!isCloud}/> :
        section==='inicio'?<Dashboard productions={productions} ideas={ideas} library={library} tasks={tasks} messages={messages} currentUserName={currentUserName} workspaceName={workspace.name} openProduction={openProduction} setModal={setModal} go={go}/>:
        section==='producciones'?<Productions productions={productions} openProduction={openProduction} setModal={setModal}/>:
        section==='ideas'?<Ideas ideas={ideas} setModal={setModal} onReact={handleReactIdea} onComment={handleCommentIdea} onArchive={handleArchiveIdea} onConvert={handleConvertIdea}/>:
-       section==='biblioteca'?<ResourceLibrary items={library} productions={productions} onNew={()=>{setResourceFileMode('all');setResourceModalTab('link');setModal('library')}} onNewFile={()=>{setResourceFileMode('all');setResourceModalTab('file');setModal('library')}} onNewMedia={()=>{setResourceFileMode('media');setResourceModalTab('file');setModal('library')}} onLink={handleLinkResource} onArchive={handleArchiveLibrary} onPreview={handlePreviewResource} onUpdate={handleUpdateLibrary}/>:
+       section==='biblioteca'?<ResourceLibrary items={library} productions={productions} folders={folders} onFolderCreate={(parent,name)=>handleCreateFolder(null,parent,name)} onFolderRename={handleRenameFolder} onFolderDelete={handleDeleteFolder} onMoveResource={handleMoveLibraryResource} onNew={()=>{setResourceFileMode('all');setResourceModalTab('link');setModal('library')}} onNewFile={()=>{setResourceFileMode('all');setResourceModalTab('file');setModal('library')}} onNewMedia={()=>{setResourceFileMode('media');setResourceModalTab('file');setModal('library')}} onLink={handleLinkResource} onArchive={handleArchiveLibrary} onPreview={handlePreviewResource} onUpdate={handleUpdateLibrary}/>:
        section==='calendario'?<Calendar productions={productions} tasks={tasks} events={calendarEvents} onCreate={handleCreateEvent} onDelete={handleDeleteEvent}/>:
        section==='tareas'?<Tasks tasks={tasks} setModal={setModal} onStatus={handleTaskStatus} onDelete={handleDeleteTask}/>:
        section==='chat'?<Chat channels={channels} channel={channel} setChannel={setChannel} messages={messages} onSend={handleSend} onReact={handleMessageReaction} onPin={handlePinMessage} currentUserId={user?.id} cloud={isCloud}/>:
