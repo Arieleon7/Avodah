@@ -2,10 +2,11 @@
 import {useEffect,useRef,useState, type FormEvent, type DragEvent} from 'react';
 import {Search, Grid2X2, List, Plus, X, ChevronRight, Copy, ExternalLink, RefreshCw, FileText, Music2, Globe2, Image as ImageIcon, PlayCircle, BookOpen, UploadCloud, Video, FileAudio, FileUp, FileImage, Download, CloudOff, LibraryBig, Film, Headphones, Images, FolderOpen} from 'lucide-react';
 import {guessResourcePreview,resourceEmbed,safeResourceUrl,resourceHost,type ResourcePreview} from '@/lib/resource-preview';
-import {requestResourcePreview,resourceSignedUrl,inspectResourceFile,RESOURCE_FILE_LIMIT} from '@/lib/cloud';
+import {requestResourcePreview,resourceSignedUrl,inspectResourceFile,RESOURCE_FILE_LIMIT,type ResourceFolder} from '@/lib/cloud';
+import {ResourceFolderExplorer,ResourceMoveSelect} from './resource-folders';
 
 export type ResourceItem={
- id:string;title:string;category:string;url:string;note:string;source:string;tags:string[];
+ id:string;title:string;category:string;url:string;note:string;source:string;tags:string[];folderId?:string|null;
  previewTitle?:string;previewDescription?:string;previewImage?:string;previewSite?:string;previewKind?:string;previewFetchedAt?:string;
  storagePath?:string;fileName?:string;fileMime?:string;fileSize?:number;fileUrl?:string;
 };
@@ -92,15 +93,17 @@ export function ResourceQuickView({item,onClose,onPreview,onUpdate,productions,o
  </section></div>;
 }
 
-export function ResourceLibrary({items,productions,onNew,onNewFile,onNewMedia,onLink,onArchive,onPreview,onUpdate}:{items:ResourceItem[];productions:ResourceProduction[];onNew:()=>void;onNewFile:()=>void;onNewMedia:()=>void;onLink:(p:string,i:string)=>void|Promise<void>;onArchive:(item:ResourceItem)=>void|Promise<void>;onPreview:(item:ResourceItem)=>void|Promise<void>;onUpdate:(item:ResourceItem)=>void|Promise<void>}){
+export function ResourceLibrary({items,productions,folders=[],onFolderCreate,onFolderRename,onFolderDelete,onMoveResource,onNew,onNewFile,onNewMedia,onLink,onArchive,onPreview,onUpdate}:{items:ResourceItem[];productions:ResourceProduction[];folders?:ResourceFolder[];onFolderCreate?:(parent:string|null,name:string)=>Promise<void>;onFolderRename?:(folderId:string,name:string)=>Promise<void>;onFolderDelete?:(folderId:string)=>Promise<void>;onMoveResource?:(id:string,folderId:string|null)=>Promise<void>;onNew:()=>void;onNewFile:()=>void;onNewMedia:()=>void;onLink:(p:string,i:string)=>void|Promise<void>;onArchive:(item:ResourceItem)=>void|Promise<void>;onPreview:(item:ResourceItem)=>void|Promise<void>;onUpdate:(item:ResourceItem)=>void|Promise<void>}){
  const [section,setSection]=useState<LibrarySection>('library');
+ const [activeFolder,setActiveFolder]=useState<string|null>(null);
  const [search,setSearch]=useState(''),[category,setCategory]=useState('Todos'),[mediaFilter,setMediaFilter]=useState<'Todos'|MediaKind>('Todos'),[view,setView]=useState<'grid'|'list'>('grid'),[targets,setTargets]=useState<Record<string,string>>({}),[selected,setSelected]=useState<ResourceItem|null>(null);
  const attempted=useRef(new Set<string>());
  const categories=['Todos',...Array.from(new Set(items.map(i=>i.category)))];
  const matches=(i:ResourceItem)=>[i.title,i.note,i.source,i.previewTitle,i.previewDescription,i.fileName,...i.tags].join(' ').toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'));
- const visible=items.filter(i=>(category==='Todos'||i.category===category)&&matches(i));
+ const inFolder=(i:ResourceItem)=>!!search.trim()||((i.folderId||null)===activeFolder);
+ const visible=items.filter(i=>(category==='Todos'||i.category===category)&&matches(i)&&inFolder(i));
  const media=items.filter(i=>mediaKind(i)!==null);
- const visibleMedia=media.filter(i=>(mediaFilter==='Todos'||mediaKind(i)===mediaFilter)&&matches(i));
+ const visibleMedia=media.filter(i=>(mediaFilter==='Todos'||mediaKind(i)===mediaFilter)&&matches(i)&&inFolder(i));
  const imageCount=media.filter(i=>mediaKind(i)==='Imagen').length,audioCount=media.filter(i=>mediaKind(i)==='Audio').length,videoCount=media.filter(i=>mediaKind(i)==='Video').length;
  const mediaBytes=media.reduce((sum,item)=>sum+(item.fileSize||0),0);
  useEffect(()=>{items.filter(i=>safeResourceUrl(i.url)&&!i.previewFetchedAt&&!attempted.current.has(i.id)).slice(0,3).forEach(item=>{attempted.current.add(item.id);void Promise.resolve(onPreview(item)).catch(()=>{})})},[items,onPreview]);
@@ -110,12 +113,14 @@ export function ResourceLibrary({items,productions,onNew,onNewFile,onNewMedia,on
     <button type="button" className={section==='library'?'active':''} onClick={()=>setSection('library')}><LibraryBig size={18}/><span><strong>Biblioteca</strong><small>Todos los recursos</small></span><b>{items.length}</b></button>
     <button type="button" className={section==='media'?'active':''} onClick={()=>setSection('media')}><Film size={18}/><span><strong>Multimedia</strong><small>Imágenes, audio y video</small></span><b>{media.length}</b></button>
   </nav>
+  {onFolderCreate&&onFolderRename&&onFolderDelete&&<ResourceFolderExplorer folders={folders} productionId={null} activeFolder={activeFolder} onActiveFolder={setActiveFolder} onCreate={onFolderCreate} onRename={onFolderRename} onDelete={onFolderDelete} resourceCounts={items.reduce<Record<string,number>>((counts,item)=>{if(item.folderId)counts[item.folderId]=(counts[item.folderId]||0)+1;return counts},{})}/>}
   {section==='library'?<>
    <div className="resources-toolbar"><div className="resource-search"><Search size={18}/><input aria-label="Buscar recursos" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por título, nota o etiqueta…"/></div><select className="select" value={category} aria-label="Filtrar por tipo" onChange={e=>setCategory(e.target.value)}>{categories.map(c=><option key={c}>{c}</option>)}</select><div className="resources-view-toggle"><button aria-label="Vista en grilla" title="Grilla" className={view==='grid'?'active':''} onClick={()=>setView('grid')}><Grid2X2 size={18}/></button><button aria-label="Vista en lista" title="Lista" className={view==='list'?'active':''} onClick={()=>setView('list')}><List size={18}/></button></div></div>
    <div className="resources-results"><span>{visible.length} {visible.length===1?'recurso':'recursos'}</span><span>Compartidos con el equipo</span></div>
    <div className={view==='grid'?'resource-grid':'resource-list'}>{visible.map(item=><article className={view==='grid'?'resource-card':'resource-row'} key={item.id}>
      <button className="resource-card-main" onClick={()=>setSelected(item)}><ResourceMedia item={item}/><div className="resource-card-body"><span className="resource-source">{resourceInfo(item).site} · {typeNames[resourceInfo(item).kind]||item.category}</span><h3>{item.title}</h3><p>{item.note||item.previewDescription||'Abrí la vista rápida para conocer este recurso.'}</p>{item.tags.length>0&&<div className="tags">{item.tags.slice(0,2).map(t=><span className="tag" key={t}>#{t}</span>)}</div>}</div></button>
      <div className="resource-card-actions"><button onClick={()=>setSelected(item)}>Vista rápida <ChevronRight size={14}/></button><button className="danger-text" onClick={()=>{void onArchive(item)}}>Archivar</button></div>
+     {onMoveResource&&<ResourceMoveSelect folders={folders} productionId={null} value={item.folderId||null} onMove={folderId=>onMoveResource(item.id,folderId)}/>}
      {linker(item)}
    </article>)}</div>
    {visible.length===0&&<div className="empty">No hay recursos para esta búsqueda. Probá otra categoría o guardá uno nuevo.</div>}
@@ -132,6 +137,7 @@ export function ResourceLibrary({items,productions,onNew,onNewFile,onNewMedia,on
    <div className="multimedia-grid">{visibleMedia.map(item=><article className="media-asset-card" key={item.id}>
      <button className="media-asset-main" type="button" onClick={()=>setSelected(item)}><MediaArtwork item={item}/><div className="media-asset-copy"><div><span>{mediaKind(item)}</span><span>{fileSize(item.fileSize||0)}</span></div><h3>{item.title}</h3><p>{item.note||item.fileName||'Archivo multimedia compartido.'}</p>{item.tags.length>0&&<div className="tags">{item.tags.slice(0,2).map(tag=><span className="tag" key={tag}>#{tag}</span>)}</div>}</div></button>
      <div className="media-asset-actions"><button type="button" onClick={()=>setSelected(item)}>Abrir <ChevronRight size={14}/></button><button type="button" className="danger-text" onClick={()=>{void onArchive(item)}}>Archivar</button></div>
+     {onMoveResource&&<ResourceMoveSelect folders={folders} productionId={null} value={item.folderId||null} onMove={folderId=>onMoveResource(item.id,folderId)}/>}
      {linker(item)}
    </article>)}</div>
    {visibleMedia.length===0&&<div className="multimedia-empty"><span className="media-empty-icon"><Film size={28}/></span><h3>{media.length?'No hay archivos de este tipo':'Todavía no hay multimedia compartida'}</h3><p>{media.length?'Probá con otro filtro o una búsqueda diferente.':'Subí imágenes, audios o videos y quedarán disponibles para toda la organización.'}</p><button className="btn primary" onClick={onNewMedia}><UploadCloud size={16}/> Subir multimedia</button></div>}
