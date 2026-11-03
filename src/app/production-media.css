@@ -125,3 +125,35 @@
 }
 @media(max-width:375px){.youtube-live-compact .youtube-live-description strong{font-size:11px}.youtube-live-compact .youtube-live-description{min-width:0}.youtube-live-compact .youtube-live-icon{width:29px;height:29px}.program-top-actions{max-width:55%}}
 @media(prefers-reduced-motion:reduce){.production-cover-pick,.youtube-live-access{transition:none}}
+
+/* Open the entire production card, without stealing clicks from YouTube/share actions. */
+.production-gallery .production-card{position:relative;cursor:pointer;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.production-gallery .production-card:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(62,43,28,.12);border-color:#d6b8a4}
+.production-gallery .production-card .production-card-hitarea{
+  position:absolute;inset:0;width:100%;height:100%;z-index:2;
+  padding:0;border:0;border-radius:inherit;background:transparent;cursor:pointer;
+}
+.production-gallery .production-card .production-card-hitarea:focus-visible{
+  outline:3px solid var(--accent);outline-offset:3px;
+}
+.production-gallery .production-card .production-card-links{
+  position:relative;z-index:3;isolation:isolate;
+}
+.production-card-copy,.production-detail-share{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.production-card-copy:disabled,.production-detail-share:disabled{opacity:.5;cursor:not-allowed}
+.production-share-toast{
+  position:fixed;z-index:100;bottom:calc(20px + env(safe-area-inset-bottom,0px));
+  right:20px;max-width:min(460px,calc(100vw - 32px));
+  display:flex;align-items:center;gap:12px;
+  padding:13px 14px 13px 17px;background:#26392f;color:#fff;
+  border:1px solid #506554;border-radius:13px;box-shadow:0 10px 35px #18241f44;
+  font-size:12px;line-height:1.55;overflow-wrap:anywhere;
+}
+.production-share-toast span{min-width:0;flex:1}
+.production-share-toast button{flex:none;display:grid;place-items:center;width:30px;height:30px;border:1px solid #ffffff66;background:transparent;color:#fff;border-radius:8px;font-size:21px;cursor:pointer}
+@media(max-width:760px){
+ .production-share-toast{left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));max-width:none}
+ .production-gallery .production-card .production-card-links{margin-left:auto}
+ .production-card-copy{font-size:11px}
+}
+@media(prefers-reduced-motion:reduce){.production-gallery .production-card{transition:none}}

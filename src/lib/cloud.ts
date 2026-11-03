@@ -177,7 +177,7 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
   return {
     workspace:{id:workspaceRow.id,name:workspaceRow.name,type:workspaceRow.production_type,description:workspaceRow.description,initials:initials(workspaceRow.name),accent:workspaceRow.accent_color,ownerId:workspaceRow.owner_id},
     members:memberRows.map((m:any)=>{const p=profileMap.get(m.user_id);const name=p?.full_name||'Integrante';return {id:m.user_id,name,initials:initials(name),role:m.user_id===workspaceRow.owner_id?'Propietario':roleLabel[m.role]??m.role,status:'Disponible',color:'#5c5148',avatarUrl:p?.avatar_url??null};}),
-    productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[],resourceFolderIds:resourceFoldersByProd.get(p.id)??{},coverPath:p.cover_storage_path||'',coverUrl:productionCoverUrls.get(p.id)||'',youtubeLiveUrl:p.youtube_live_url||''};}),
+    productions:productionRows.map((p:any)=>{const dt=localDateParts(p.scheduled_at);return {id:p.id,title:p.title,type:p.format,status:productionStatusFromDb[p.status]??'Idea',date:dt.date,time:dt.time,duration:p.duration_min,completion:p.completion,topic:p.topic,question:p.question,objective:p.objective,description:p.description,references:p.reference_notes??[],hosts:p.hosts??[],guests:p.guests??[],notes:p.notes,members:memberIdsByProd.get(p.id)??[],resourceIds:resourceIdsByProd.get(p.id)??[],shareCode:p.share_code||'',resourceFolderIds:resourceFoldersByProd.get(p.id)??{},coverPath:p.cover_storage_path||'',coverUrl:productionCoverUrls.get(p.id)||'',youtubeLiveUrl:p.youtube_live_url||''};}),
     blocks:(blockRes.data ?? []).map((b:any)=>({id:b.id,productionId:b.production_id,order:b.position,type:b.type,title:b.title,duration:b.duration_min,responsible:nameOf(b.responsible_id),responsibleId:b.responsible_id,notes:b.notes,status:b.status})),
     productionNotes:(productionNoteRes.data ?? []).map((n:any)=>({id:n.id,productionId:n.production_id,title:n.title,content:n.content,authorId:n.created_by??undefined,author:nameOf(n.created_by)||'Integrante',createdAt:n.created_at,updatedAt:n.updated_at})),
     ideas:(ideaRes.data ?? []).map((i:any)=>({id:i.id,title:i.title,description:i.description,tags:i.tags??[],author:nameOf(i.author_id),authorId:i.author_id,reactions:reactionCount.get(i.id)||0,comments:(commentsByIdea.get(i.id)||[]).length,commentItems:commentsByIdea.get(i.id)||[],archived:i.archived})),
@@ -188,6 +188,15 @@ export async function loadWorkspaceSnapshot(workspaceId: string) {
     messages:(messageRes.data ?? []).map((m:any)=>({id:m.id,channel:channelAlias.get(m.channel_id)??m.channel_id,dbChannelId:m.channel_id,author:nameOf(m.author_id),authorId:m.author_id,text:m.body,time:new Date(m.created_at).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),replyTo:m.reply_to,pinned:!!m.pinned_at,reactions:reactionsByMessage.get(m.id)||[],attachments:attachmentsByMessage.get(m.id)||[]})),
     calendarEvents:(calendarRes.data??[]).map((e:any)=>({id:e.id,title:e.title,kind:e.kind,startsAt:e.starts_at,endsAt:e.ends_at,notes:e.notes,productionId:e.production_id??undefined})),
   };
+}
+
+/** Resolve a private short link using production RLS. A short code is not an invitation. */
+export async function resolveSharedProduction(code:string):Promise<{id:string;workspaceId:string}|null>{
+  if(!/^[A-Za-z0-9_-]{12}$/.test(code))return null;
+  const {data,error}=await supabase.from('productions')
+    .select('id,workspace_id').eq('share_code',code).maybeSingle();
+  if(error)throw error;
+  return data?{id:data.id as string,workspaceId:data.workspace_id as string}:null;
 }
 
 export async function insertProduction(workspaceId:string,userId:string,p:any) {
